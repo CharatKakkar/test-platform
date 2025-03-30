@@ -8,7 +8,7 @@
   .hero-section {
     text-align: center;
     padding: 60px 20px;
-    background: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), 
+    background:
                 url('/src/components/images/hero-bg.jpg') no-repeat center center;
     background-size: cover;
     border-radius: 8px;

@@ -1,4 +1,3 @@
-// components/HomePage.js
 import React from 'react';
 import { Link } from 'react-router-dom';
 import '../Home.css';
@@ -12,6 +11,44 @@ const Home = () => {
         <div className="cta-buttons">
           <Link to="/login" className="btn btn-primary">Login</Link>
           <Link to="/register" className="btn btn-secondary">Register</Link>
+        </div>
+      </div>
+
+      <div className="exams-section">
+        <h2>Available Exams</h2>
+        <div className="exam-list">
+          <div className="exam-card">
+            <h3>SAT Preparation</h3>
+            <p>College entrance examination with math, reading, and writing sections.</p>
+            <Link to="/exams/sat" className="btn btn-outline">Start Practicing</Link>
+          </div>
+          
+          <div className="exam-card">
+            <h3>GMAT Preparation</h3>
+            <p>Business school admission test covering analytical writing, quantitative reasoning, and verbal reasoning.</p>
+            <Link to="/exams/gmat" className="btn btn-outline">Start Practicing</Link>
+          </div>
+          
+          <div className="exam-card">
+            <h3>CompTIA A+ Certification</h3>
+            <p>IT certification covering hardware, networking, mobile devices, and troubleshooting.</p>
+            <Link to="/exams/comptia" className="btn btn-outline">Start Practicing</Link>
+          </div>
+          
+          <div className="exam-card">
+            <h3>TOEFL Preparation</h3>
+            <p>English language proficiency test for non-native speakers seeking academic admission.</p>
+            <Link to="/exams/toefl" className="btn btn-outline">Start Practicing</Link>
+          </div>
+          
+          <div className="exam-card">
+            <h3>Nursing NCLEX</h3>
+            <p>Licensing examination for nursing candidates testing clinical knowledge and critical thinking.</p>
+            <Link to="/exams/nclex" className="btn btn-outline">Start Practicing</Link>
+          </div>
+        </div>
+        <div className="view-all-exams">
+          <Link to="/exams" className="btn btn-secondary">View All Exams</Link>
         </div>
       </div>
 
