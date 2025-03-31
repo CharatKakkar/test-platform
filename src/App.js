@@ -145,10 +145,15 @@ function App() {
             <Route path="/tests/:testId" element={isAuthenticated ? <TestDetails user={user} /> : <Navigate to="/login" />} />
             <Route path="/attempt/:testId" element={isAuthenticated ? <TestAttempt user={user} /> : <Navigate to="/login" />} />
             <Route path="/history" element={isAuthenticated ? <AttemptHistory user={user} /> : <Navigate to="/login" />} />
-            <Route path="/cart" element={isAuthenticated ? <Cart user={user} /> : <Navigate to="/login" />} />
             
             {/* New exam-related routes */}
-            <Route path="/exams" element={<ExamsList />} />
+            <Route path="/exams" element={<ExamsList
+                          user={user} 
+                          isAuthenticated={isAuthenticated} 
+                          addToCart={addToCart}
+                          removeFromCart={removeFromCart}
+                          cart={cart}
+                           />} />
             <Route path="/exams/:examId" element={<ExamDetails 
               user={user} 
               isAuthenticated={isAuthenticated} 
@@ -167,7 +172,8 @@ function App() {
                 isAuthenticated={isAuthenticated}
               />
             } />
-            <Route path="/checkout" element={isAuthenticated ? 
+            <Route path="/checkout" element={
+              isAuthenticated ? 
               <Checkout 
                 cart={cart} 
                 user={user} 

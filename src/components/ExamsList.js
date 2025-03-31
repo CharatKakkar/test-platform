@@ -220,7 +220,6 @@ const ExamsList = ({ isAuthenticated, addToCart, removeFromCart, cart }) => {
               <div className="exam-actions">
                 <Link to={`/exams/${exam.id}`} className="btn btn-primary">View Details</Link>
                 <Link to={`/demo/${exam.id}`} className="btn btn-outline">Try Demo</Link>
-                {isAuthenticated && (
                   <button 
                     className={`btn ${isInCart(exam.id) ? 'btn-danger' : 'btn-success'}`}
                     onClick={() => isInCart(exam.id) 
@@ -230,7 +229,6 @@ const ExamsList = ({ isAuthenticated, addToCart, removeFromCart, cart }) => {
                   >
                     {isInCart(exam.id) ? 'Remove from Cart' : 'Add to Cart'}
                   </button>
-                )}
               </div>
             </div>
           </div>
@@ -243,37 +241,43 @@ const ExamsList = ({ isAuthenticated, addToCart, removeFromCart, cart }) => {
         </div>
       )}
 
-      {/* Cart Summary (shows only when there are items in cart) */}
-      {isAuthenticated && cart && cart.length > 0 && (
-        <div className="cart-summary">
-          <h3>Cart Summary ({cart.length} {cart.length === 1 ? 'item' : 'items'})</h3>
-          <div className="cart-items">
-            {cart.map(item => (
-              <div key={item.id} className="cart-item">
-                <span className="cart-item-title">{item.title}</span>
-                <span className="cart-item-price">${item.price.toFixed(2)}</span>
-                <button 
-                  className="cart-item-remove" 
-                  onClick={() => handleRemoveFromCart(item.id)}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="cart-total">
-            <span>Total:</span>
-            <span>
-              ${cart.reduce((total, item) => total + item.price, 0).toFixed(2)}
-            </span>
-          </div>
-          <Link to="/checkout" className="btn btn-primary checkout-btn">
-            Proceed to Checkout
-          </Link>
+{/* Cart Summary (shows only when there are items in cart) */}
+{cart && cart.length > 0 && (
+  <div className="cart-summary">
+    <h3>Cart Summary ({cart.length} {cart.length === 1 ? 'item' : 'items'})</h3>
+    <div className="cart-items">
+      {cart.map(item => (
+        <div key={item.id} className="cart-item">
+          <span className="cart-item-title">{item.title}</span>
+          <span className="cart-item-price">${item.price.toFixed(2)}</span>
+          <button 
+            className="cart-item-remove" 
+            onClick={() => handleRemoveFromCart(item.id)}
+          >
+            ✕
+          </button>
         </div>
-      )}
+      ))}
+    </div>
+    <div className="cart-total">
+      <span>Total:</span>
+      <span>
+        ${cart.reduce((total, item) => total + item.price, 0).toFixed(2)}
+      </span>
+    </div>
+    {isAuthenticated ? (
+      <Link to="/checkout" className="btn btn-primary checkout-btn">
+        Proceed to Checkout
+      </Link>
+    ) : (
+      <Link to="/login" className="btn btn-primary checkout-btn" state={{ from: '/checkout' }}>
+        Login to Checkout
+      </Link>
+    )}
+  </div>
+)}
     </div>
   );
 };
 
-export default ExamsList;
+export default ExamsList;   
