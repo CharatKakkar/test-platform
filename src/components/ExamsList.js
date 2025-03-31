@@ -3,11 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './ExamsList.css';
 
-const ExamsList = () => {
+const ExamsList = ({ isAuthenticated, addToCart, removeFromCart, cart }) => {
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [notification, setNotification] = useState({ show: false, message: '' });
   
   // In a real application, this would be fetched from an API
   useEffect(() => {
@@ -114,6 +115,44 @@ const ExamsList = () => {
     
     return filtered;
   };
+
+  // Check if an exam is in the cart
+  const isInCart = (examId) => {
+    return cart && cart.some(item => item.id === examId);
+  };
+  
+  // Handle adding item to cart
+  const handleAddToCart = (exam) => {
+    addToCart(exam);
+    
+    // Show notification
+    setNotification({
+      show: true,
+      message: `${exam.title} added to cart!`
+    });
+    
+    // Hide notification after 3 seconds
+    setTimeout(() => {
+      setNotification({ show: false, message: '' });
+    }, 3000);
+  };
+  
+  // Handle removing item from cart
+  const handleRemoveFromCart = (examId) => {
+    const exam = exams.find(item => item.id === examId);
+    removeFromCart(examId);
+    
+    // Show notification
+    setNotification({
+      show: true,
+      message: `${exam.title} removed from cart!`
+    });
+    
+    // Hide notification after 3 seconds
+    setTimeout(() => {
+      setNotification({ show: false, message: '' });
+    }, 3000);
+  };
   
   if (loading) {
     return (
@@ -127,6 +166,13 @@ const ExamsList = () => {
   return (
     <div className="exams-list-container">
       <h1>Available Certification Exams</h1>
+      
+      {/* Notification */}
+      {notification.show && (
+        <div className="notification">
+          <p>{notification.message}</p>
+        </div>
+      )}
       
       <div className="search-filter-container">
         <div className="search-container">
@@ -174,6 +220,17 @@ const ExamsList = () => {
               <div className="exam-actions">
                 <Link to={`/exams/${exam.id}`} className="btn btn-primary">View Details</Link>
                 <Link to={`/demo/${exam.id}`} className="btn btn-outline">Try Demo</Link>
+                {isAuthenticated && (
+                  <button 
+                    className={`btn ${isInCart(exam.id) ? 'btn-danger' : 'btn-success'}`}
+                    onClick={() => isInCart(exam.id) 
+                      ? handleRemoveFromCart(exam.id) 
+                      : handleAddToCart(exam)
+                    }
+                  >
+                    {isInCart(exam.id) ? 'Remove from Cart' : 'Add to Cart'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -183,6 +240,36 @@ const ExamsList = () => {
       {filterExams().length === 0 && (
         <div className="no-results">
           <p>No exams match your search criteria. Try adjusting your filters.</p>
+        </div>
+      )}
+
+      {/* Cart Summary (shows only when there are items in cart) */}
+      {isAuthenticated && cart && cart.length > 0 && (
+        <div className="cart-summary">
+          <h3>Cart Summary ({cart.length} {cart.length === 1 ? 'item' : 'items'})</h3>
+          <div className="cart-items">
+            {cart.map(item => (
+              <div key={item.id} className="cart-item">
+                <span className="cart-item-title">{item.title}</span>
+                <span className="cart-item-price">${item.price.toFixed(2)}</span>
+                <button 
+                  className="cart-item-remove" 
+                  onClick={() => handleRemoveFromCart(item.id)}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="cart-total">
+            <span>Total:</span>
+            <span>
+              ${cart.reduce((total, item) => total + item.price, 0).toFixed(2)}
+            </span>
+          </div>
+          <Link to="/checkout" className="btn btn-primary checkout-btn">
+            Proceed to Checkout
+          </Link>
         </div>
       )}
     </div>

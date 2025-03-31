@@ -3,12 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import './ExamDetails.css';
 
-const ExamDetails = ({ user, isAuthenticated, addToCart }) => {
+const ExamDetails = ({ user, isAuthenticated, addToCart, removeFromCart, cart }) => {
   const { examId } = useParams();
   const [exam, setExam] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-  const [addedToCart, setAddedToCart] = useState(false);
+  const [notification, setNotification] = useState({ show: false, message: '' });
   
   useEffect(() => {
     // In a real app, fetch exam details from an API
@@ -115,13 +115,38 @@ const ExamDetails = ({ user, isAuthenticated, addToCart }) => {
     }, 1000);
   }, [examId]);
   
+  // Check if exam is in cart
+  const isInCart = () => {
+    return cart && cart.some(item => item.id === exam.id);
+  };
+  
   const handleAddToCart = () => {
     addToCart(exam);
-    setAddedToCart(true);
     
-    // Reset button after 3 seconds
+    // Show notification
+    setNotification({
+      show: true,
+      message: `${exam.title} added to cart!`
+    });
+    
+    // Hide notification after 3 seconds
     setTimeout(() => {
-      setAddedToCart(false);
+      setNotification({ show: false, message: '' });
+    }, 3000);
+  };
+  
+  const handleRemoveFromCart = () => {
+    removeFromCart(exam.id);
+    
+    // Show notification
+    setNotification({
+      show: true,
+      message: `${exam.title} removed from cart!`
+    });
+    
+    // Hide notification after 3 seconds
+    setTimeout(() => {
+      setNotification({ show: false, message: '' });
     }, 3000);
   };
   
@@ -230,6 +255,13 @@ const ExamDetails = ({ user, isAuthenticated, addToCart }) => {
   
   return (
     <div className="exam-details-container">
+      {/* Notification */}
+      {notification.show && (
+        <div className="notification">
+          <p>{notification.message}</p>
+        </div>
+      )}
+      
       <div className="exam-details-header">
         <div className="exam-details-thumbnail">
           <img src={exam.thumbnail} alt={exam.title} />
@@ -247,15 +279,30 @@ const ExamDetails = ({ user, isAuthenticated, addToCart }) => {
             <div className="exam-details-price">${exam.price.toFixed(2)}</div>
             <div className="exam-details-actions">
               <Link to={`/demo/${exam.id}`} className="btn btn-outline">Try Demo</Link>
-              <button 
-                className={`btn btn-primary ${addedToCart ? 'added' : ''}`}
-                onClick={handleAddToCart}
-                disabled={addedToCart}
-              >
-                {addedToCart ? 'Added to Cart ✓' : 'Add to Cart'}
-              </button>
+              {isAuthenticated ? (
+                <button 
+                  className={`btn ${isInCart() ? 'btn-danger' : 'btn-primary'}`}
+                  onClick={isInCart() ? handleRemoveFromCart : handleAddToCart}
+                >
+                  {isInCart() ? 'Remove from Cart' : 'Add to Cart'}
+                </button>
+              ) : (
+                <Link to="/login" className="btn btn-primary">Login to Purchase</Link>
+              )}
             </div>
           </div>
+          
+          {/* Cart Preview if item is in cart */}
+          {isAuthenticated && isInCart() && (
+            <div className="cart-preview">
+              <div className="cart-preview-header">
+                <span>Item in cart</span>
+                <Link to="/checkout" className="checkout-link">
+                  Go to Checkout
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       
@@ -303,13 +350,18 @@ const ExamDetails = ({ user, isAuthenticated, addToCart }) => {
             
             <div className="exam-cta">
               <h3>Ready to get certified?</h3>
-              <button 
-                className="btn btn-primary btn-large"
-                onClick={handleAddToCart}
-                disabled={addedToCart}
-              >
-                {addedToCart ? 'Added to Cart ✓' : 'Enroll Now'}
-              </button>
+              {isAuthenticated ? (
+                <button 
+                  className={`btn btn-large ${isInCart() ? 'btn-danger' : 'btn-primary'}`}
+                  onClick={isInCart() ? handleRemoveFromCart : handleAddToCart}
+                >
+                  {isInCart() ? 'Remove from Cart' : 'Enroll Now'}
+                </button>
+              ) : (
+                <Link to="/login" className="btn btn-primary btn-large">
+                  Login to Enroll
+                </Link>
+              )}
             </div>
           </div>
         )}

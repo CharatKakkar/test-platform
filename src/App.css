@@ -624,4 +624,159 @@ button:disabled {
   .attempts-table td {
     padding: 10px;
   }
+  /* Add to your existing CSS files or create new ones */
+/* Notification Styles */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #4CAF50;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+  max-width: 300px;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-20px); }
+}
+/* Cart Button Styles */
+.btn-success {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+}
+.btn-success:hover {
+  background-color: #45a049;
+}
+.btn-danger {
+  background-color: #f44336;
+  color: white;
+  border: none;
+}
+.btn-danger:hover {
+  background-color: #d32f2f;
+}
+/* Cart Summary Styles */
+.cart-summary {
+  margin-top: 30px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+.cart-summary h3 {
+  margin-top: 0;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+.cart-items {
+  margin-bottom: 15px;
+}
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}
+.cart-item-title {
+  flex: 1;
+  font-weight: 500;
+}
+.cart-item-price {
+  margin: 0 15px;
+  color: #555;
+  font-weight: 500;
+}
+.cart-item-quantity {
+  width: 60px;
+  text-align: center;
+  margin: 0 10px;
+}
+.cart-item-total {
+  font-weight: bold;
+  min-width: 80px;
+  text-align: right;
+}
+.cart-item-actions {
+  margin-left: 10px;
+}
+.cart-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 2px solid #ddd;
+}
+/* Checkout Button Styles */
+.checkout-btn {
+  margin-top: 15px;
+  width: 100%;
+  padding: 12px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1.1em;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+.checkout-btn:hover {
+  background-color: #45a049;
+}
+.checkout-btn:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+/* Empty Cart Message */
+.empty-cart {
+  text-align: center;
+  padding: 30px 0;
+  color: #999;
+}
+.empty-cart i {
+  font-size: 3em;
+  margin-bottom: 15px;
+  display: block;
+}
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .cart-item {
+    flex-wrap: wrap;
+  }
+  .cart-item-title {
+    flex-basis: 100%;
+    margin-bottom: 10px;
+  }
+  .cart-item-actions {
+    margin-left: auto;
+  }
+}
+/* Quantity Controls */
+.quantity-control {
+  display: flex;
+  align-items: center;
+}
+.quantity-btn {
+  background-color: #eee;
+  border: none;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-weight: bold;
+}
+.quantity-btn:hover {
+  background-color: #ddd;
+}
 }

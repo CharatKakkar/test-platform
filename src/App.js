@@ -16,12 +16,14 @@ import DemoExam from './components/DemoExam.js';
 import Checkout from './components/Checkout';
 import Footer from './components/Footer';
 import './App.css';
+import Cart from './components/Cart.js';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState([]);
+  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   
   useEffect(() => {
     // Check if user is logged in
@@ -40,6 +42,16 @@ function App() {
     setLoading(false);
   }, []);
   
+  // Handle notifications
+  const showNotification = (message, type = 'success') => {
+    setNotification({ show: true, message, type });
+    
+    // Hide notification after 3 seconds
+    setTimeout(() => {
+      setNotification({ ...notification, show: false });
+    }, 3000);
+  };
+  
   const login = (userData) => {
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
@@ -53,13 +65,37 @@ function App() {
   };
   
   const addToCart = (exam) => {
+    // Check if item is already in cart
+    if (cart.some(item => item.id === exam.id)) {
+      showNotification(`${exam.title} is already in your cart`, 'info');
+      return;
+    }
+    
     const updatedCart = [...cart, exam];
     setCart(updatedCart);
     localStorage.setItem('cart', JSON.stringify(updatedCart));
+    showNotification(`${exam.title} added to cart`);
   };
   
   const removeFromCart = (examId) => {
+    const examToRemove = cart.find(item => item.id === examId);
     const updatedCart = cart.filter(item => item.id !== examId);
+    setCart(updatedCart);
+    localStorage.setItem('cart', JSON.stringify(updatedCart));
+    
+    if (examToRemove) {
+      showNotification(`${examToRemove.title} removed from cart`, 'warning');
+    }
+  };
+  
+  const updateCartItemQuantity = (examId, quantity) => {
+    const updatedCart = cart.map(item => {
+      if (item.id === examId) {
+        return { ...item, quantity: Math.max(1, quantity) };
+      }
+      return item;
+    });
+    
     setCart(updatedCart);
     localStorage.setItem('cart', JSON.stringify(updatedCart));
   };
@@ -67,6 +103,14 @@ function App() {
   const clearCart = () => {
     setCart([]);
     localStorage.removeItem('cart');
+    showNotification('Cart has been cleared');
+  };
+  
+  const getCartTotal = () => {
+    return cart.reduce((total, item) => {
+      const quantity = item.quantity || 1;
+      return total + (item.price * quantity);
+    }, 0);
   };
   
   if (loading) {
@@ -81,7 +125,16 @@ function App() {
           user={user} 
           onLogout={logout} 
           cartItems={cart.length}
+          cartTotal={getCartTotal()}
         />
+        
+        {/* Notification component */}
+        {notification.show && (
+          <div className={`notification notification-${notification.type}`}>
+            {notification.message}
+          </div>
+        )}
+        
         <main className="content">
           <Routes>
             <Route path="/" element={isAuthenticated ? <Dashboard user={user} /> : <HomePage />} />
@@ -92,17 +145,37 @@ function App() {
             <Route path="/tests/:testId" element={isAuthenticated ? <TestDetails user={user} /> : <Navigate to="/login" />} />
             <Route path="/attempt/:testId" element={isAuthenticated ? <TestAttempt user={user} /> : <Navigate to="/login" />} />
             <Route path="/history" element={isAuthenticated ? <AttemptHistory user={user} /> : <Navigate to="/login" />} />
+            <Route path="/cart" element={isAuthenticated ? <Cart user={user} /> : <Navigate to="/login" />} />
             
             {/* New exam-related routes */}
             <Route path="/exams" element={<ExamsList />} />
             <Route path="/exams/:examId" element={<ExamDetails 
               user={user} 
               isAuthenticated={isAuthenticated} 
-              addToCart={addToCart} 
+              addToCart={addToCart}
+              removeFromCart={removeFromCart}
+              cart={cart}
             />} />
             <Route path="/demo/:examId" element={<DemoExam />} />
+            <Route path="/cart" element={
+              <Cart 
+                cart={cart} 
+                removeFromCart={removeFromCart}
+                updateQuantity={updateCartItemQuantity}
+                clearCart={clearCart}
+                cartTotal={getCartTotal()}
+                isAuthenticated={isAuthenticated}
+              />
+            } />
             <Route path="/checkout" element={isAuthenticated ? 
-              <Checkout cart={cart} user={user} clearCart={clearCart} removeFromCart={removeFromCart} /> : 
+              <Checkout 
+                cart={cart} 
+                user={user} 
+                clearCart={clearCart} 
+                removeFromCart={removeFromCart}
+                updateQuantity={updateCartItemQuantity}
+                cartTotal={getCartTotal()} 
+              /> : 
               <Navigate to="/login" state={{ from: '/checkout' }} />
             } />
           </Routes>
