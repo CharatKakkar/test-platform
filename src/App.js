@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/Header';
-import HomePage from './components/HomePage';
+import EnhancedHomePage from './components/EnhancedHomePage';
 import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
@@ -10,7 +10,6 @@ import TestList from './components/TestList';
 import TestDetails from './components/TestDetails';
 import TestAttempt from './components/TestAttempt';
 import AttemptHistory from './components/AttemptHistory';
-import ExamsList from './components/ExamsList';
 import ExamDetails from './components/ExamDetails';
 import DemoExam from './components/DemoExam.js';
 import Checkout from './components/Checkout';
@@ -137,7 +136,16 @@ function App() {
         
         <main className="content">
           <Routes>
-            <Route path="/" element={isAuthenticated ? <Dashboard user={user} /> : <HomePage />} />
+            <Route path="/" element={
+              isAuthenticated ? 
+                <Dashboard user={user} /> : 
+                <EnhancedHomePage 
+                  isAuthenticated={isAuthenticated}
+                  addToCart={addToCart}
+                  removeFromCart={removeFromCart}
+                  cart={cart}
+                />
+            } />
             <Route path="/login" element={!isAuthenticated ? <Login onLogin={login} /> : <Navigate to="/" />} />
             <Route path="/register" element={!isAuthenticated ? <Register onRegister={login} /> : <Navigate to="/" />} />
             <Route path="/dashboard" element={isAuthenticated ? <Dashboard user={user} /> : <Navigate to="/login" />} />
@@ -146,21 +154,26 @@ function App() {
             <Route path="/attempt/:testId" element={isAuthenticated ? <TestAttempt user={user} /> : <Navigate to="/login" />} />
             <Route path="/history" element={isAuthenticated ? <AttemptHistory user={user} /> : <Navigate to="/login" />} />
             
-            {/* New exam-related routes */}
-            <Route path="/exams" element={<ExamsList
-                          user={user} 
-                          isAuthenticated={isAuthenticated} 
-                          addToCart={addToCart}
-                          removeFromCart={removeFromCart}
-                          cart={cart}
-                           />} />
-            <Route path="/exams/:examId" element={<ExamDetails 
-              user={user} 
-              isAuthenticated={isAuthenticated} 
-              addToCart={addToCart}
-              removeFromCart={removeFromCart}
-              cart={cart}
-            />} />
+            {/* Updated exam routes */}
+            <Route path="/exams" element={
+              <EnhancedHomePage
+                user={user} 
+                isAuthenticated={isAuthenticated} 
+                addToCart={addToCart}
+                removeFromCart={removeFromCart}
+                cart={cart}
+                showAllExams={true}
+              />
+            } />
+            <Route path="/exams/:examId" element={
+              <ExamDetails 
+                user={user} 
+                isAuthenticated={isAuthenticated} 
+                addToCart={addToCart}
+                removeFromCart={removeFromCart}
+                cart={cart}
+              />
+            } />
             <Route path="/demo/:examId" element={<DemoExam />} />
             <Route path="/cart" element={
               <Cart 
