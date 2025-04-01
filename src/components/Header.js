@@ -1,6 +1,9 @@
 // components/Header.js
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import './Home.css';
+import './Cart.css';
+
 
 function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0 }) {
   const navigate = useNavigate();
