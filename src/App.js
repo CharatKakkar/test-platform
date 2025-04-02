@@ -12,7 +12,7 @@ import TestAttempt from './components/TestAttempt';
 import AttemptHistory from './components/AttemptHistory';
 import ExamDetails from './components/ExamDetails';
 import DemoExam from './components/DemoExam.js';
-import Checkout from './components/Checkout';
+import Checkout from './components/Checkout'; // Import the new enhanced checkout
 import Footer from './components/Footer';
 import './App.css';
 import Cart from './components/Cart.js';
@@ -185,6 +185,7 @@ function App() {
                 isAuthenticated={isAuthenticated}
               />
             } />
+            {/* Updated checkout route using the Enhanced Checkout */}
             <Route path="/checkout" element={
               <Checkout 
                 cart={cart} 
@@ -193,7 +194,8 @@ function App() {
                 removeFromCart={removeFromCart}
                 updateQuantity={updateCartItemQuantity}
                 cartTotal={getCartTotal()} 
-              />
+                onLogin={login}
+              /> 
             } />
           </Routes>
         </main>
