@@ -1,156 +1,111 @@
-// components/Cart.js
-import React from 'react';
+// components/Header.js
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import './Home.css';
+import './Cart.css';
 
-function Cart({ cart = [], removeFromCart, updateQuantity, clearCart, cartTotal = 0, isAuthenticated }) {
+function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0 }) {
   const navigate = useNavigate();
+  const [showCartPreview, setShowCartPreview] = useState(false);
 
-  console.log("CART TOTAL" + cartTotal);
-
-  const handleQuantityChange = (examId, newQuantity) => {
-    const quantity = parseInt(newQuantity);
-    if (quantity > 0) {
-      updateQuantity(examId, quantity);
-    }
+  const handleLogout = () => {
+    onLogout();
+    navigate('/login');
   };
 
-  const handleRemoveItem = (examId) => {
-    removeFromCart(examId);
+  const toggleCartPreview = () => {
+    setShowCartPreview(!showCartPreview);
   };
 
-  const handleClearCart = () => {
-    if (window.confirm('Are you sure you want to clear your cart?')) {
-      clearCart();
-    }
-  };
-
-  const handleCheckout = () => {
-    if (isAuthenticated) {
-      navigate('/checkout');
-    } else {
-      navigate('/login', { state: { from: '/checkout' } });
-    }
+  const closeCartPreview = () => {
+    setShowCartPreview(false);
   };
 
   return (
-    <div className="cart-page">
-      <div className="container">
-        <h1>Your Shopping Cart</h1>
+    <header className="header">
+      <div className="logo">
+        <Link to="/">TestPro</Link>
+      </div>
+      <nav className="nav">
+        <Link to="/">Dashboard</Link>
+        <Link to="/tests">Tests</Link>
+        <Link to="/exams">Exams</Link>
         
-        {cart.length > 0 ? (
-          <>
-            <div className="cart-items-container">
-              <table className="cart-table">
-                <thead>
-                  <tr>
-                    <th>Exam</th>
-                    <th>Price</th>
-                    <th>Quantity</th>
-                    <th>Total</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cart.map((item) => {
-                    const quantity = item.quantity || 1;
-                    const itemTotal = item.price * quantity;
-                    
-                    return (
-                      <tr key={item.id} className="cart-item">
-                        <td className="cart-item-title">
-                          <Link to={`/exams/${item.id}`}>{item.title}</Link>
-                          {item.description && (
-                            <p className="cart-item-description">{item.description}</p>
-                          )}
-                        </td>
-                        <td className="cart-item-price">${item.price.toFixed(2)}</td>
-                        <td className="cart-item-quantity">
-                          <div className="quantity-control">
-                            <button 
-                              className="quantity-btn" 
-                              onClick={() => handleQuantityChange(item.id, quantity - 1)}
-                              disabled={quantity <= 1}
-                            >
-                              -
-                            </button>
-                            <input
-                              type="number"
-                              min="1"
-                              value={quantity}
-                              onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                              className="quantity-input"
-                            />
-                            <button 
-                              className="quantity-btn" 
-                              onClick={() => handleQuantityChange(item.id, quantity + 1)}
-                            >
-                              +
-                            </button>
-                          </div>
-                        </td>
-                        <td className="cart-item-total">${itemTotal.toFixed(2)}</td>
-                        <td className="cart-item-actions">
-                          <button 
-                            className="btn-remove"
-                            onClick={() => handleRemoveItem(item.id)}
-                          >
-                            <i className="fas fa-trash"></i> Remove
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            
-            <div className="cart-summary">
-              <div className="cart-actions">
-                <button 
-                  className="btn-clear-cart" 
-                  onClick={handleClearCart}
-                >
-                  Clear Cart
-                </button>
-                <Link to="/exams" className="btn-continue-shopping">
-                  Continue Shopping
-                </Link>
+        {/* Cart icon with item count */}
+        <div className="cart-container">
+          <div className="cart-icon" onClick={toggleCartPreview}>
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="24" 
+              height="24" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            >
+              <circle cx="9" cy="21" r="1"></circle>
+              <circle cx="20" cy="21" r="1"></circle>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+            {cartItems > 0 && <span className="cart-badge">{cartItems}</span>}
+          </div>
+          
+          {/* Cart preview dropdown */}
+                      {showCartPreview && (
+            <div className="cart-preview">
+              <div className="cart-preview-header">
+                <h3>Your Cart ({cartItems})</h3>
+                <button className="close-preview" onClick={closeCartPreview}>×</button>
               </div>
               
-              <div className="cart-totals">
-                <div className="subtotal">
-                  <span>Subtotal:</span>
-                  <span>${cartTotal.toFixed(2)}</span>
+              {cartItems > 0 ? (
+                <>
+                  <div className="cart-preview-total">
+                    <span>Total:</span>
+                    <span>${cartTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="cart-preview-actions">
+                    <Link to="/cart" className="btn-view-cart" onClick={closeCartPreview}>
+                      View Cart
+                    </Link>
+                    <Link 
+                      to={isAuthenticated ? "/checkout" : "/login"} 
+                      className="btn-checkout"
+                      onClick={closeCartPreview}
+                      state={!isAuthenticated ? { from: '/checkout' } : undefined}
+                    >
+                      {isAuthenticated ? "Checkout" : "Login"}
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <div className="empty-cart-message">
+                  Your cart is empty
                 </div>
-                <div className="tax">
-                  <span>Tax:</span>
-                  <span>${(cartTotal * 0.07).toFixed(2)}</span>
-                </div>
-                <div className="total">
-                  <span>Total:</span>
-                  <span>${(cartTotal * 1.07).toFixed(2)}</span>
-                </div>
-                <button 
-                  className="btn-checkout"
-                  onClick={handleCheckout}
-                >
-                  {isAuthenticated ? 'Proceed to Checkout' : 'Login to Checkout'}
-                </button>
-              </div>
+              )}
+            </div>
+          )}
+        </div>
+        
+        {isAuthenticated ? (
+          <>
+            <Link to="/history">History</Link>
+            <div className="user-menu">
+              <span className="username">Welcome, {user.name}</span>
+              <button onClick={handleLogout} className="btn-logout">Logout</button>
             </div>
           </>
         ) : (
-          <div className="empty-cart">
-            <i className="fas fa-shopping-cart"></i>
-            <p>Your cart is empty</p>
-            <Link to="/exams" className="btn-start-shopping">
-              Browse Available Exams
-            </Link>
-          </div>
+          <>
+            <Link to="/login">Login</Link>
+            <Link to="/register">Register</Link>
+          </>
         )}
-      </div>
-    </div>
+      </nav>
+    </header>
   );
 }
 
-export default Cart;
+export default Header;
