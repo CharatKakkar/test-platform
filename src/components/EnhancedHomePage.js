@@ -317,15 +317,11 @@ const EnhancedHomePage = ({ isAuthenticated, addToCart, removeFromCart, cart = [
               <span>${calculateCartTotal()}</span>
             </div>
             
-            {isAuthenticated ? (
+            {
               <Link to="/checkout" className="btn btn-primary checkout-btn">
                 Proceed to Checkout
               </Link>
-            ) : (
-              <Link to="/login" className="btn btn-primary checkout-btn" state={{ from: '/checkout' }}>
-                Login to Checkout
-              </Link>
-            )}
+            }
           </div>
         )}
       </div>

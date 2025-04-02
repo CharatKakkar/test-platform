@@ -186,7 +186,6 @@ function App() {
               />
             } />
             <Route path="/checkout" element={
-              isAuthenticated ? 
               <Checkout 
                 cart={cart} 
                 user={user} 
@@ -194,8 +193,7 @@ function App() {
                 removeFromCart={removeFromCart}
                 updateQuantity={updateCartItemQuantity}
                 cartTotal={getCartTotal()} 
-              /> : 
-              <Navigate to="/login" state={{ from: '/checkout' }} />
+              />
             } />
           </Routes>
         </main>
