@@ -1,10 +1,10 @@
-// components/Header.js
+// components/Header.js (Fixed)
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './Home.css';
 import './Cart.css';
 
-function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0 }) {
+function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0, cart = [] }) {
   const navigate = useNavigate();
   const [showCartPreview, setShowCartPreview] = useState(false);
 
@@ -53,7 +53,7 @@ function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0 
           </div>
           
           {/* Cart preview dropdown */}
-                      {showCartPreview && (
+          {showCartPreview && (
             <div className="cart-preview">
               <div className="cart-preview-header">
                 <h3>Your Cart ({cartItems})</h3>
@@ -62,6 +62,24 @@ function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0 
               
               {cartItems > 0 ? (
                 <>
+                  {/* Display cart items in the preview */}
+                  <div className="cart-preview-items">
+                    {cart && cart.length > 0 ? (
+                      cart.map(item => (
+                        <div key={item.id} className="cart-preview-item">
+                          <span className="cart-item-title">
+                            {item.title}
+                          </span>
+                          <span className="cart-item-price">${item.price.toFixed(2)}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="cart-preview-message">
+                        {cartItems} {cartItems === 1 ? 'item' : 'items'} in cart
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="cart-preview-total">
                     <span>Total:</span>
                     <span>${cartTotal.toFixed(2)}</span>
@@ -71,11 +89,12 @@ function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0 
                       View Cart
                     </Link>
                     <Link 
-                      to="/checkout" 
+                      to={isAuthenticated ? "/checkout" : "/login"} 
                       className="btn-checkout"
                       onClick={closeCartPreview}
+                      state={!isAuthenticated ? { from: '/checkout' } : undefined}
                     >
-                      Checkout
+                      {isAuthenticated ? "Checkout" : "Login"}
                     </Link>
                   </div>
                 </>

@@ -125,6 +125,7 @@ function App() {
           onLogout={logout} 
           cartItems={cart.length}
           cartTotal={getCartTotal()}
+          cart={cart}  // Pass the full cart array
         />
         
         {/* Notification component */}
