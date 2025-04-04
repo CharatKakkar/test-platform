@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const Cart = ({ cart = [], removeFromCart, updateQuantity, clearCart, cartTotal = 0, isAuthenticated }) => {
+const Cart = ({ cart = [], removeFromCart, clearCart, cartTotal = 0, isAuthenticated }) => {
   const [notification, setNotification] = useState({ show: false, message: '' });
 
   const handleRemoveFromCart = (item) => {
@@ -18,10 +18,6 @@ const Cart = ({ cart = [], removeFromCart, updateQuantity, clearCart, cartTotal 
     setTimeout(() => {
       setNotification({ show: false, message: '' });
     }, 3000);
-  };
-
-  const handleQuantityChange = (item, newQuantity) => {
-    updateQuantity(item.id, newQuantity);
   };
 
   const handleClearCart = () => {
@@ -137,37 +133,9 @@ const Cart = ({ cart = [], removeFromCart, updateQuantity, clearCart, cartTotal 
                 {/* Quantity */}
                 <div style={{ flex: '1', textAlign: 'center' }}>
                   <div style={{ display: 'inline-flex', alignItems: 'center' }}>
-                    <button 
-                      onClick={() => handleQuantityChange(item, (item.quantity || 1) - 1)}
-                      disabled={(item.quantity || 1) <= 1}
-                      style={{
-                        width: '30px',
-                        height: '30px',
-                        borderRadius: '50%',
-                        border: '1px solid #ddd',
-                        background: (item.quantity || 1) <= 1 ? '#f5f5f5' : 'white',
-                        color: (item.quantity || 1) <= 1 ? '#aaa' : '#333',
-                        cursor: (item.quantity || 1) <= 1 ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      -
-                    </button>
                     <span style={{ margin: '0 10px', minWidth: '20px', textAlign: 'center' }}>
                       {item.quantity || 1}
                     </span>
-                    <button 
-                      onClick={() => handleQuantityChange(item, (item.quantity || 1) + 1)}
-                      style={{
-                        width: '30px',
-                        height: '30px',
-                        borderRadius: '50%',
-                        border: '1px solid #ddd',
-                        background: 'white',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      +
-                    </button>
                   </div>
                 </div>
                 

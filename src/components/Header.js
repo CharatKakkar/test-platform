@@ -27,9 +27,10 @@ function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0,
         <Link to="/">TestPro</Link>
       </div>
       <nav className="nav">
-        <Link to="/">Dashboard</Link>
-        <Link to="/tests">Tests</Link>
-        <Link to="/exams">Exams</Link>
+      { isAuthenticated && <Link to="/">Dashboard</Link>}
+       {/* Show Tests link only for authenticated users */}
+       {isAuthenticated && <Link to="/tests">Tests</Link>}
+      {/*<Link to="/exams">Exams</Link> */}
         
         {/* Cart icon with item count */}
         <div className="cart-container">

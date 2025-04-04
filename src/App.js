@@ -180,7 +180,6 @@ function App() {
               <Cart 
                 cart={cart} 
                 removeFromCart={removeFromCart}
-                updateQuantity={updateCartItemQuantity}
                 clearCart={clearCart}
                 cartTotal={getCartTotal()}
                 isAuthenticated={isAuthenticated}
