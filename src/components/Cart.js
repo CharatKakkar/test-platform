@@ -299,7 +299,7 @@ const Cart = ({ cart = [], removeFromCart, updateQuantity, clearCart, cartTotal 
                 </Link>
               ) : (
                 <Link
-                  to="/login"
+                  to="/checkout"
                   state={{ from: '/checkout' }}
                   style={{
                     display: 'block',
@@ -314,7 +314,7 @@ const Cart = ({ cart = [], removeFromCart, updateQuantity, clearCart, cartTotal 
                     fontSize: '16px'
                   }}
                 >
-                  Login to Checkout
+                   Checkout
                 </Link>
               )}
             </div>

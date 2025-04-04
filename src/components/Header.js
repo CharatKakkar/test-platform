@@ -89,12 +89,12 @@ function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0,
                       View Cart
                     </Link>
                     <Link 
-                      to={isAuthenticated ? "/checkout" : "/login"} 
+                      to={"/checkout"} 
                       className="btn-checkout"
                       onClick={closeCartPreview}
                       state={!isAuthenticated ? { from: '/checkout' } : undefined}
                     >
-                      {isAuthenticated ? "Checkout" : "Login"}
+                      {"Checkout"}
                     </Link>
                   </div>
                 </>
