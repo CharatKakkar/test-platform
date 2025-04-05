@@ -1,6 +1,7 @@
 // components/Register.js
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { registerUser } from '../services/authService';
 
 function Register({ onRegister }) {
   const [name, setName] = useState('');
@@ -8,23 +9,53 @@ function Register({ onRegister }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  
+  const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validation
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
     
-    if (name && email && password) {
-      // Simulate API call
-      setTimeout(() => {
-        const userData = { id: 1, name, email };
-        onRegister(userData);
-      }, 500);
-    } else {
+    if (!name || !email || !password) {
       setError('Please fill in all fields');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      // Call Firebase registration service
+      const userData = await registerUser(name, email, password);
+      
+      // Call the onRegister callback from App.js
+      if (onRegister) {
+        onRegister(userData);
+      }
+      
+      // Navigate to home page
+      navigate('/');
+    } catch (error) {
+      console.error('Registration error:', error);
+      
+      // Handle different Firebase auth errors
+      if (error.code === 'auth/email-already-in-use') {
+        setError('Email is already in use');
+      } else if (error.code === 'auth/weak-password') {
+        setError('Password is too weak');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Invalid email address');
+      } else {
+        setError(error.message || 'An error occurred during registration. Please try again.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -73,7 +104,13 @@ function Register({ onRegister }) {
             required
           />
         </div>
-        <button type="submit" className="btn-primary">Register</button>
+        <button 
+          type="submit" 
+          className="btn-primary"
+          disabled={loading}
+        >
+          {loading ? 'Creating Account...' : 'Register'}
+        </button>
       </form>
       <p>
         Already have an account? <Link to="/login">Login here</Link>

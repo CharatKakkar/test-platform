@@ -1,87 +1,58 @@
-// components/EnhancedCheckout.js
+// components/Checkout.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { createOrder, applyCoupon } from '../services/orderService';
+import { getCart } from '../services/cartService';
 import './Checkout.css';
 
-const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, cartTotal = 0, onLogin }) => {
+const Checkout = ({ user }) => {
   const navigate = useNavigate();
+  
+  const [cart, setCart] = useState([]);
   const [examResults, setExamResults] = useState(null);
-  const [activeTab, setActiveTab] = useState(user ? 'checkout' : 'login');
-  // Parse user's name into first and last name if available
-  const parseUserName = () => {
-    if (!user || !user.name) return { firstName: '', lastName: '' };
-    
-    const nameParts = user.name.split(' ');
-    if (nameParts.length === 1) {
-      return { firstName: nameParts[0], lastName: '' };
-    }
-    
-    const firstName = nameParts[0];
-    const lastName = nameParts.slice(1).join(' '); // Handle multi-part last names
-    return { firstName, lastName };
-  };
   
-  // Initialize form data based on user
-  const [formData, setFormData] = useState(() => {
-    const { firstName, lastName } = parseUserName();
-    return {
-      firstName: firstName,
-      lastName: lastName,
-      email: user?.email || '',
-      paymentMethod: 'credit',
-      cardNumber: '',
-      cardExpiry: '',
-      cardCvc: '',
-      couponCode: ''
-    };
+  // Form state
+  const [formData, setFormData] = useState({
+    firstName: user?.name?.split(' ')[0] || '',
+    lastName: user?.name?.split(' ')[1] || '',
+    email: user?.email || '',
+    paymentMethod: 'credit',
+    cardNumber: '',
+    cardExpiry: '',
+    cardCvc: '',
+    couponCode: ''
   });
   
-  // Update form data when user changes (such as after login)
-  useEffect(() => {
-    if (user) {
-      const { firstName, lastName } = parseUserName();
-      setFormData(prevData => ({
-        ...prevData,
-        firstName: firstName,
-        lastName: lastName,
-        email: user.email || ''
-      }));
-      
-      // Set active tab to checkout if user is logged in
-      setActiveTab('checkout');
-    }
-  }, [user]);
-  
-  // Login/Register form data
-  const [authData, setAuthData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-  
+  // UI state
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [couponApplied, setCouponApplied] = useState(false);
+  const [couponResponse, setCouponResponse] = useState(null);
   const [orderComplete, setOrderComplete] = useState(false);
-  const [authError, setAuthError] = useState('');
-
-  const coursePrice = cartTotal || 299.99;
-  const discountAmount = couponApplied ? 50 : 0;
-  const finalTotal = (coursePrice - discountAmount).toFixed(2);
-
+  const [orderDetails, setOrderDetails] = useState(null);
+  
   useEffect(() => {
-    // Get exam results from localStorage if available
-    const results = localStorage.getItem('examResults');
-    if (results) {
-      setExamResults(JSON.parse(results));
-    }
+    const fetchCartData = async () => {
+      try {
+        const cartData = await getCart();
+        setCart(cartData);
+        
+        // If cart is empty, redirect to exams page
+        if (!cartData || cartData.length === 0) {
+          // Check if we have exam results from a demo
+          const results = localStorage.getItem('examResults');
+          if (!results) {
+            navigate('/exams');
+          } else {
+            setExamResults(JSON.parse(results));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching cart:', error);
+      }
+    };
     
-    // If cart is empty and no exam results, redirect to exams page
-    if (cart.length === 0 && !results) {
-      navigate('/exams');
-    }
-  }, [cart, navigate]);
+    fetchCartData();
+  }, [navigate]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -97,17 +68,6 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
         [name]: ''
       }));
     }
-  };
-
-  const handleAuthInputChange = (e) => {
-    const { name, value } = e.target;
-    setAuthData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Clear auth error
-    setAuthError('');
   };
 
   const validateForm = () => {
@@ -150,34 +110,30 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
     return Object.keys(newErrors).length === 0;
   };
 
-  const validateAuthForm = () => {
-    if (activeTab === 'login') {
-      if (!authData.email || !authData.password) {
-        setAuthError('Email and password are required');
-        return false;
-      }
-    } else if (activeTab === 'register') {
-      if (!authData.name || !authData.email || !authData.password) {
-        setAuthError('All fields are required');
-        return false;
-      }
-      if (authData.password !== authData.confirmPassword) {
-        setAuthError('Passwords do not match');
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const applyCoupon = () => {
-    // Simple coupon validation
-    if (formData.couponCode.toUpperCase() === 'DEMO50') {
-      setCouponApplied(true);
-      setErrors(prev => ({...prev, couponCode: ''}));
-    } else {
+  const handleApplyCoupon = async () => {
+    if (!formData.couponCode) {
       setErrors(prev => ({
         ...prev,
-        couponCode: 'Invalid coupon code'
+        couponCode: 'Please enter a coupon code'
+      }));
+      return;
+    }
+    
+    try {
+      const response = await applyCoupon(formData.couponCode);
+      setCouponResponse(response);
+      
+      if (!response.valid) {
+        setErrors(prev => ({
+          ...prev,
+          couponCode: response.message
+        }));
+      }
+    } catch (error) {
+      console.error('Error applying coupon:', error);
+      setErrors(prev => ({
+        ...prev,
+        couponCode: 'Error applying coupon'
       }));
     }
   };
@@ -189,83 +145,74 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
     
     setLoading(true);
     
-    // Simulate API call to process payment
     try {
-      // Replace with actual payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Calculate totals
+      const subtotal = cart.reduce((total, item) => total + item.price, 0);
+      const discountAmount = couponResponse?.valid 
+        ? (couponResponse.discountType === 'fixed' 
+          ? couponResponse.discountAmount 
+          : subtotal * (couponResponse.discountPercentage / 100))
+        : 0;
+      const total = Math.max(0, subtotal - discountAmount);
+      
+      // Prepare order data
+      const orderData = {
+        items: cart,
+        totalAmount: total,
+        subtotal: subtotal,
+        discountApplied: discountAmount,
+        couponCode: couponResponse?.valid ? couponResponse.code : null,
+        paymentMethod: formData.paymentMethod,
+        billing: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email
+        },
+        paymentDetails: formData.paymentMethod === 'credit' ? {
+          lastFour: formData.cardNumber.slice(-4),
+          expiry: formData.cardExpiry
+        } : null
+      };
+      
+      // Create order in Firebase
+      const orderResult = await createOrder(orderData);
+      
+      // Clear exam results from localStorage if present
+      localStorage.removeItem('examResults');
+      
+      // Set order details and mark as complete
+      setOrderDetails(orderResult);
       setOrderComplete(true);
       
-      // Clear cart and exam results after successful checkout
-      clearCart();
-      localStorage.removeItem('examResults');
     } catch (error) {
+      console.error('Error creating order:', error);
       setErrors(prev => ({
         ...prev,
-        submit: 'Payment processing failed. Please try again.'
+        submit: 'Error processing your order. Please try again.'
       }));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    
-    if (!validateAuthForm()) return;
-    
-    setLoading(true);
-    
-    // Simulate API login
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Create mock user data (in a real app, this would come from your backend)
-      const userData = { 
-        id: 1, 
-        name: 'Test User', 
-        email: authData.email 
-      };
-      
-      // Call the login function from props (from App.js)
-      onLogin(userData);
-      
-      // Switch to checkout form
-      setActiveTab('checkout');
-    } catch (error) {
-      setAuthError('Login failed. Please check your credentials.');
-    } finally {
-      setLoading(false);
-    }
+  // Calculate totals
+  const calculateSubtotal = () => {
+    return cart.reduce((total, item) => total + item.price, 0);
   };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
+  
+  const calculateDiscount = () => {
+    if (!couponResponse?.valid) return 0;
     
-    if (!validateAuthForm()) return;
-    
-    setLoading(true);
-    
-    // Simulate API registration
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Create user data (in a real app, this would come from your backend)
-      const userData = { 
-        id: Date.now(), 
-        name: authData.name, 
-        email: authData.email 
-      };
-      
-      // Call the login function from props (from App.js)
-      onLogin(userData);
-      
-      // Switch to checkout form
-      setActiveTab('checkout');
-    } catch (error) {
-      setAuthError('Registration failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    const subtotal = calculateSubtotal();
+    return couponResponse.discountType === 'fixed' 
+      ? couponResponse.discountAmount 
+      : subtotal * (couponResponse.discountPercentage / 100);
+  };
+  
+  const calculateTotal = () => {
+    const subtotal = calculateSubtotal();
+    const discount = calculateDiscount();
+    return Math.max(0, subtotal - discount).toFixed(2);
   };
 
   if (orderComplete) {
@@ -289,7 +236,7 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
               <span className="order-label">Email:</span> {formData.email}
             </p>
             <p>
-              <span className="order-label">Order ID:</span> ORD-{Math.random().toString(36).substring(2, 10).toUpperCase()}
+              <span className="order-label">Order ID:</span> {orderDetails?.id || 'N/A'}
             </p>
           </div>
           
@@ -303,16 +250,16 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
               </div>
             ))}
             
-            {couponApplied && (
+            {couponResponse?.valid && (
               <div className="flex justify-between mb-2 text-green-600">
-                <span>Discount (DEMO50)</span>
-                <span>-${discountAmount.toFixed(2)}</span>
+                <span>Discount ({couponResponse.code})</span>
+                <span>-${calculateDiscount().toFixed(2)}</span>
               </div>
             )}
             
             <div className="flex justify-between font-bold mt-4 pt-4 border-t border-gray-200">
               <span>Total</span>
-              <span>${finalTotal}</span>
+              <span>${calculateTotal()}</span>
             </div>
           </div>
         </div>
@@ -322,433 +269,15 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
         </p>
         
         <Link 
-          to="/"
+          to="/dashboard"
           className="btn btn-primary"
         >
-          Return to Homepage
+          Go to Dashboard
         </Link>
       </div>
     );
   }
 
-  // For non-logged in users, show auth forms
-  if (!user) {
-    return (
-      <div className="checkout-container">
-        <h1 className="text-2xl font-bold mb-6 text-center">Complete Your Purchase</h1>
-        
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-          {/* Auth forms - 3 columns */}
-          <div className="md:col-span-3 bg-white rounded-lg shadow-md p-6">
-            <div className="auth-tabs">
-              <button 
-                className={`auth-tab ${activeTab === 'login' ? 'active' : ''}`}
-                onClick={() => setActiveTab('login')}
-              >
-                Login
-              </button>
-              <button 
-                className={`auth-tab ${activeTab === 'register' ? 'active' : ''}`}
-                onClick={() => setActiveTab('register')}
-              >
-                Register
-              </button>
-              <button 
-                className={`auth-tab ${activeTab === 'guest' ? 'active' : ''}`}
-                onClick={() => setActiveTab('guest')}
-              >
-                Guest Checkout
-              </button>
-            </div>
-            
-            {authError && (
-              <div className="bg-red-50 text-red-600 p-4 mb-4 rounded-md">
-                {authError}
-              </div>
-            )}
-            
-            {activeTab === 'login' && (
-              <form onSubmit={handleLogin}>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="login-email">Email</label>
-                  <input
-                    id="login-email"
-                    type="email"
-                    name="email"
-                    value={authData.email}
-                    onChange={handleAuthInputChange}
-                    className="form-input"
-                    placeholder="your@email.com"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label" htmlFor="login-password">Password</label>
-                  <input
-                    id="login-password"
-                    type="password"
-                    name="password"
-                    value={authData.password}
-                    onChange={handleAuthInputChange}
-                    className="form-input"
-                    placeholder="********"
-                    required
-                  />
-                </div>
-                
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn btn-primary btn-full"
-                >
-                  {loading ? 'Logging in...' : 'Login & Continue'}
-                </button>
-              </form>
-            )}
-            
-            {activeTab === 'register' && (
-              <form onSubmit={handleRegister}>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="reg-name">Full Name</label>
-                  <input
-                    id="reg-name"
-                    type="text"
-                    name="name"
-                    value={authData.name}
-                    onChange={handleAuthInputChange}
-                    className="form-input"
-                    placeholder="John Doe"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label" htmlFor="reg-email">Email</label>
-                  <input
-                    id="reg-email"
-                    type="email"
-                    name="email"
-                    value={authData.email}
-                    onChange={handleAuthInputChange}
-                    className="form-input"
-                    placeholder="your@email.com"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label" htmlFor="reg-password">Password</label>
-                  <input
-                    id="reg-password"
-                    type="password"
-                    name="password"
-                    value={authData.password}
-                    onChange={handleAuthInputChange}
-                    className="form-input"
-                    placeholder="********"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label" htmlFor="reg-confirm-password">Confirm Password</label>
-                  <input
-                    id="reg-confirm-password"
-                    type="password"
-                    name="confirmPassword"
-                    value={authData.confirmPassword}
-                    onChange={handleAuthInputChange}
-                    className="form-input"
-                    placeholder="********"
-                    required
-                  />
-                </div>
-                
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn btn-primary btn-full"
-                >
-                  {loading ? 'Creating account...' : 'Create Account & Continue'}
-                </button>
-              </form>
-            )}
-            
-            {activeTab === 'guest' && (
-              <>
-                <p className="mb-6 text-gray-600">
-                  Continue as a guest without creating an account. You can create an account later.
-                </p>
-                
-                <form onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="firstName">First Name</label>
-                      <input
-                        id="firstName"
-                        name="firstName"
-                        type="text"
-                        value={formData.firstName}
-                        onChange={handleInputChange}
-                        className={`form-input ${errors.firstName ? 'error' : ''}`}
-                        required
-                      />
-                      {errors.firstName && <p className="error-message">{errors.firstName}</p>}
-                    </div>
-                    
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="lastName">Last Name</label>
-                      <input
-                        id="lastName"
-                        name="lastName"
-                        type="text"
-                        value={formData.lastName}
-                        onChange={handleInputChange}
-                        className={`form-input ${errors.lastName ? 'error' : ''}`}
-                        required
-                      />
-                      {errors.lastName && <p className="error-message">{errors.lastName}</p>}
-                    </div>
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="email">Email Address</label>
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className={`form-input ${errors.email ? 'error' : ''}`}
-                      required
-                    />
-                    {errors.email && <p className="error-message">{errors.email}</p>}
-                  </div>
-                
-                  
-                  <div className="border-t border-gray-200 pt-6 mb-6">
-                    <h2 className="text-xl font-semibold mb-4">Payment Method</h2>
-                    
-                    <div className="payment-methods">
-                      <div className="payment-option">
-                        <input
-                          id="credit"
-                          name="paymentMethod"
-                          type="radio"
-                          value="credit"
-                          checked={formData.paymentMethod === 'credit'}
-                          onChange={handleInputChange}
-                          className="payment-radio"
-                        />
-                        <label htmlFor="credit" className="text-gray-700">
-                          Credit / Debit Card
-                        </label>
-                      </div>
-                      
-                      <div className="payment-option">
-                        <input
-                          id="paypal"
-                          name="paymentMethod"
-                          type="radio"
-                          value="paypal"
-                          checked={formData.paymentMethod === 'paypal'}
-                          onChange={handleInputChange}
-                          className="payment-radio"
-                        />
-                        <label htmlFor="paypal" className="text-gray-700">
-                          PayPal
-                        </label>
-                      </div>
-                    </div>
-                    
-                    {formData.paymentMethod === 'credit' && (
-                      <div className="payment-details">
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="cardNumber">Card Number</label>
-                          <input
-                            id="cardNumber"
-                            name="cardNumber"
-                            type="text"
-                            maxLength="19"
-                            placeholder="1234 5678 9012 3456"
-                            value={formData.cardNumber}
-                            onChange={handleInputChange}
-                            className={`form-input ${errors.cardNumber ? 'error' : ''}`}
-                          />
-                          {errors.cardNumber && <p className="error-message">{errors.cardNumber}</p>}
-                        </div>
-                        
-                        <div className="card-row">
-                          <div className="form-group">
-                            <label className="form-label" htmlFor="cardExpiry">Expiry Date (MM/YY)</label>
-                            <input
-                              id="cardExpiry"
-                              name="cardExpiry"
-                              type="text"
-                              placeholder="MM/YY"
-                              maxLength="5"
-                              value={formData.cardExpiry}
-                              onChange={handleInputChange}
-                              className={`form-input ${errors.cardExpiry ? 'error' : ''}`}
-                            />
-                            {errors.cardExpiry && <p className="error-message">{errors.cardExpiry}</p>}
-                          </div>
-                          
-                          <div className="form-group">
-                            <label className="form-label" htmlFor="cardCvc">CVC</label>
-                            <input
-                              id="cardCvc"
-                              name="cardCvc"
-                              type="text"
-                              placeholder="123"
-                              maxLength="4"
-                              value={formData.cardCvc}
-                              onChange={handleInputChange}
-                              className={`form-input ${errors.cardCvc ? 'error' : ''}`}
-                            />
-                            {errors.cardCvc && <p className="error-message">{errors.cardCvc}</p>}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {formData.paymentMethod === 'paypal' && (
-                      <div className="payment-details text-center">
-                        <p className="mb-4">You will be redirected to PayPal to complete your purchase after submission.</p>
-                        <div className="flex justify-center">
-                          <img src="/api/placeholder/120/40" alt="PayPal" className="h-10" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {errors.submit && (
-                    <div className="mb-6 p-3 bg-red-50 text-red-600 rounded-md">
-                      {errors.submit}
-                    </div>
-                  )}
-                  
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="btn btn-primary btn-full"
-                  >
-                    {loading ? 'Processing...' : 'Complete Purchase'}
-                  </button>
-                </form>
-              </>
-            )}
-          </div>
-          
-          {/* Order summary - 2 columns */}
-          <div className="md:col-span-2">
-            <div className="order-summary">
-              <h2 className="summary-title">Order Summary</h2>
-              
-              {cart.length > 0 ? (
-                <div>
-                  {cart.map(item => (
-                    <div key={item.id} className="summary-item">
-                      <span className="summary-item-title">{item.title}</span>
-                      <span className="summary-item-price">${item.price.toFixed(2)}</span>
-                    </div>
-                  ))}
-                  
-                  {couponApplied && (
-                    <div className="summary-item summary-discount">
-                      <span>Discount (DEMO50)</span>
-                      <span>-${discountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  
-                  <div className="summary-total">
-                    <span>Total</span>
-                    <span>${finalTotal}</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-gray-500">Your cart is empty</p>
-                  <Link to="/exams" className="text-blue-600 font-medium mt-2 inline-block">Browse Exams</Link>
-                </div>
-              )}
-              
-              <div className="coupon-container">
-                <input
-                  type="text"
-                  name="couponCode"
-                  placeholder="Coupon Code"
-                  value={formData.couponCode}
-                  onChange={handleInputChange}
-                  className={`coupon-input ${errors.couponCode ? 'error' : ''}`}
-                />
-                <button
-                  type="button"
-                  onClick={applyCoupon}
-                  disabled={couponApplied}
-                  className={`coupon-button ${couponApplied ? 'applied' : ''}`}
-                >
-                  {couponApplied ? 'Applied' : 'Apply'}
-                </button>
-                {errors.couponCode && <p className="error-message">{errors.couponCode}</p>}
-                {couponApplied && <p className="text-green-600 text-sm mt-1">Coupon applied successfully!</p>}
-                <p className="text-gray-500 text-xs mt-2">Try code "DEMO50" for $50 off</p>
-              </div>
-              
-              {examResults && (
-                <div className="score-box">
-                  <h3 className="score-title">Your Demo Exam Score</h3>
-                  <p className="score-value">
-                    Score: {examResults.score} out of {examResults.totalQuestions} ({examResults.percentage}%)
-                  </p>
-                  <div className="score-bar">
-                    <div 
-                      className={`score-progress ${examResults.percentage >= 70 ? 'pass' : 'fail'}`}
-                      style={{ width: `${examResults.percentage}%` }}
-                    ></div>
-                  </div>
-                  <p className="score-message">
-                    {examResults.percentage >= 70 
-                      ? 'Great job! You are ready for the full course.'
-                      : 'The full course will help you improve your skills!'}
-                  </p>
-                </div>
-              )}
-              
-              <div className="benefits-list">
-                <h3 className="font-semibold mb-3">What You'll Get</h3>
-                <div className="benefit-item">
-                  <span className="benefit-icon">✓</span>
-                  <span>Full Access to All Purchased Content</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">✓</span>
-                  <span>Certificate of Completion</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">✓</span>
-                  <span>1-Year Access to All Materials</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">✓</span>
-                  <span>Community Forum Access</span>
-                </div>
-              </div>
-              
-              <div className="mt-6 text-sm text-gray-600">
-                <p>
-                  By completing your purchase, you agree to our <a href="#" className="text-blue-600 hover:underline">Terms of Service</a> and <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // For logged-in users, show the regular checkout form
   return (
     <div className="checkout-container">
       <h1 className="text-2xl font-bold mb-8 text-center">Complete Your Purchase</h1>
@@ -916,7 +445,7 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
               
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || cart.length === 0}
                 className="btn btn-primary btn-full"
               >
                 {loading ? 'Processing...' : 'Complete Purchase'}
@@ -929,26 +458,33 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
           <div className="order-summary mb-6">
             <h2 className="summary-title">Order Summary</h2>
             
-            <div>
-              {cart.map(item => (
-                <div key={item.id} className="summary-item">
-                  <span className="summary-item-title">{item.title}</span>
-                  <span className="summary-item-price">${item.price.toFixed(2)}</span>
+            {cart.length > 0 ? (
+              <div>
+                {cart.map(item => (
+                  <div key={item.id} className="summary-item">
+                    <span className="summary-item-title">{item.title}</span>
+                    <span className="summary-item-price">${item.price.toFixed(2)}</span>
+                  </div>
+                ))}
+                
+                {couponResponse?.valid && (
+                  <div className="summary-item summary-discount">
+                    <span>Discount ({couponResponse.code})</span>
+                    <span>-${calculateDiscount().toFixed(2)}</span>
+                  </div>
+                )}
+                
+                <div className="summary-total">
+                  <span>Total</span>
+                  <span>${calculateTotal()}</span>
                 </div>
-              ))}
-              
-              {couponApplied && (
-                <div className="summary-item summary-discount">
-                  <span>Discount (DEMO50)</span>
-                  <span>-${discountAmount.toFixed(2)}</span>
-                </div>
-              )}
-              
-              <div className="summary-total">
-                <span>Total</span>
-                <span>${finalTotal}</span>
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-gray-500">Your cart is empty</p>
+                <Link to="/exams" className="text-blue-600 font-medium mt-2 inline-block">Browse Exams</Link>
+              </div>
+            )}
             
             <div className="coupon-container">
               <input
@@ -958,17 +494,18 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
                 value={formData.couponCode}
                 onChange={handleInputChange}
                 className={`coupon-input ${errors.couponCode ? 'error' : ''}`}
+                disabled={couponResponse?.valid}
               />
               <button
                 type="button"
-                onClick={applyCoupon}
-                disabled={couponApplied}
-                className={`coupon-button ${couponApplied ? 'applied' : ''}`}
+                onClick={handleApplyCoupon}
+                disabled={couponResponse?.valid}
+                className={`coupon-button ${couponResponse?.valid ? 'applied' : ''}`}
               >
-                {couponApplied ? 'Applied' : 'Apply'}
+                {couponResponse?.valid ? 'Applied' : 'Apply'}
               </button>
               {errors.couponCode && <p className="error-message">{errors.couponCode}</p>}
-              {couponApplied && <p className="text-green-600 text-sm mt-1">Coupon applied successfully!</p>}
+              {couponResponse?.valid && <p className="text-green-600 text-sm mt-1">{couponResponse.message}</p>}
               <p className="text-gray-500 text-xs mt-2">Try code "DEMO50" for $50 off</p>
             </div>
             

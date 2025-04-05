@@ -1,0 +1,97 @@
+# Firebase Migration Guide
+
+This guide will help you migrate your TestPro application from local storage to Firebase.
+
+## Prerequisites
+
+1. Create a Firebase account at [firebase.google.com](https://firebase.google.com/)
+2. Create a new Firebase project
+3. Enable Firestore and Authentication in the Firebase console
+
+## Step 1: Install Required Dependencies
+
+```bash
+npm install firebase
+```
+
+## Step 2: Configure Your Firebase Project
+
+1. Replace the Firebase configuration in `src/firebase.js` with your actual project configuration from the Firebase console.
+
+2. Update the Firebase project ID in `firestore.rules` if needed.
+
+## Step 3: Deploy Firebase Security Rules
+
+1. Install Firebase CLI:
+```bash
+npm install -g firebase-tools
+```
+
+2. Log in to Firebase:
+```bash
+firebase login
+```
+
+3. Initialize your project:
+```bash
+firebase init
+```
+- Select Firestore and Hosting features
+- Select your Firebase project
+- Use the defaults for the other options
+- Don't overwrite existing files if asked
+
+4. Deploy the Firestore security rules:
+```bash
+firebase deploy --only firestore:rules
+```
+
+## Step 4: Initialize Database
+
+1. Update the Firebase configuration in `scripts/initializeFirebase.js` with your project details
+2. Run the initialization script to populate the database with initial data:
+```bash
+node -r esm scripts/initializeFirebase.js
+```
+
+## Step 5: Update Components
+
+Replace the following components with their Firebase-enabled versions:
+
+1. `src/App.js` → Updated version with Firebase services
+2. `src/components/Login.js` → Updated version with Firebase authentication
+3. `src/components/Register.js` → Updated version with Firebase authentication
+4. `src/components/Dashboard.js` → Updated version with Firebase data fetching
+
+## Step 6: Test Authentication Flow
+
+1. Try registering a new user
+2. Try logging in with existing credentials
+3. Try adding items to cart and verifying they persist across page refreshes
+
+## Step 7: Test Data Persistence
+
+1. Take a demo exam and verify the results are saved to Firebase
+2. Check that exam history appears correctly on the dashboard
+3. Ensure cart items persist even after logging out and back in
+
+## Step 8: Migrate Existing Data (Optional)
+
+If you need to migrate existing local storage data:
+
+1. Create a backup of local storage data
+2. Write a migration script that reads from local storage and writes to Firebase
+3. Run the migration script when users first use the new version
+
+## Common Issues
+
+- **CORS issues**: If you encounter CORS errors, make sure your Firebase security rules are configured correctly.
+- **Authentication errors**: Verify that Authentication is enabled in the Firebase console for Email/Password.
+- **Deployment issues**: Make sure your Firebase project has the correct billing plan for your needs.
+
+## Next Steps
+
+1. Set up Firebase Hosting to deploy your application
+2. Implement email verification for enhanced security
+3. Add password reset functionality
+4. Set up Firebase Analytics to track user engagement

@@ -1,6 +1,10 @@
-// App.js - Main application component
+// App.js - Main application component with Firebase integration
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './firebase';
+
+// Components
 import Header from './components/Header';
 import EnhancedHomePage from './components/EnhancedHomePage';
 import Login from './components/Login';
@@ -12,10 +16,23 @@ import TestAttempt from './components/TestAttempt';
 import AttemptHistory from './components/AttemptHistory';
 import ExamDetails from './components/ExamDetails';
 import DemoExam from './components/DemoExam.js';
-import Checkout from './components/Checkout'; // Import the new enhanced checkout
+import Checkout from './components/Checkout';
 import Footer from './components/Footer';
-import './App.css';
 import Cart from './components/Cart.js';
+import Profile from './components/Profile.js';
+
+// Firebase Services
+import { getCurrentUser, loginUser, logoutUser } from './services/authService';
+import { 
+  getCart, 
+  addToCart, 
+  removeFromCart, 
+  updateCartItemQuantity, 
+  clearCart,
+  mergeCartOnLogin
+} from './services/cartService';
+
+import './App.css';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -24,21 +41,44 @@ function App() {
   const [cart, setCart] = useState([]);
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   
+  // Monitor authentication state
   useEffect(() => {
-    // Check if user is logged in
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
-    }
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setLoading(true);
+      
+      if (firebaseUser) {
+        try {
+          // Get full user data from Firestore
+          const userData = await getCurrentUser();
+          setUser(userData);
+          setIsAuthenticated(true);
+          
+          // Merge local cart with Firebase cart when user logs in
+          const updatedCart = await mergeCartOnLogin(firebaseUser.uid);
+          setCart(updatedCart);
+        } catch (error) {
+          console.error("Error setting up user data:", error);
+          setIsAuthenticated(false);
+          setUser(null);
+        }
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
+        
+        // Load cart from localStorage for non-authenticated users
+        try {
+          const localCart = await getCart();
+          setCart(localCart);
+        } catch (error) {
+          console.error("Error loading local cart:", error);
+        }
+      }
+      
+      setLoading(false);
+    });
     
-    // Load cart from localStorage
-    const storedCart = localStorage.getItem('cart');
-    if (storedCart) {
-      setCart(JSON.parse(storedCart));
-    }
-    
-    setLoading(false);
+    // Clean up subscription
+    return () => unsubscribe();
   }, []);
   
   // Handle notifications
@@ -51,60 +91,81 @@ function App() {
     }, 3000);
   };
   
-  const login = (userData) => {
-    localStorage.setItem('user', JSON.stringify(userData));
-    setUser(userData);
-    setIsAuthenticated(true);
-  };
-  
-  const logout = () => {
-    localStorage.removeItem('user');
-    setUser(null);
-    setIsAuthenticated(false);
-  };
-  
-  const addToCart = (exam) => {
-    // Check if item is already in cart
-    if (cart.some(item => item.id === exam.id)) {
-      showNotification(`${exam.title} is already in your cart`, 'info');
-      return;
-    }
-    
-    const updatedCart = [...cart, exam];
-    setCart(updatedCart);
-    localStorage.setItem('cart', JSON.stringify(updatedCart));
-    showNotification(`${exam.title} added to cart`);
-  };
-  
-  const removeFromCart = (examId) => {
-    const examToRemove = cart.find(item => item.id === examId);
-    const updatedCart = cart.filter(item => item.id !== examId);
-    setCart(updatedCart);
-    localStorage.setItem('cart', JSON.stringify(updatedCart));
-    
-    if (examToRemove) {
-      showNotification(`${examToRemove.title} removed from cart`, 'warning');
+  // Login handler
+  const login = async (email, password) => {
+    try {
+      const userData = await loginUser(email, password);
+      return userData;
+    } catch (error) {
+      showNotification(error.message, 'error');
+      throw error;
     }
   };
   
-  const updateCartItemQuantity = (examId, quantity) => {
-    const updatedCart = cart.map(item => {
-      if (item.id === examId) {
-        return { ...item, quantity: Math.max(1, quantity) };
+  // Logout handler
+  const logout = async () => {
+    try {
+      await logoutUser();
+      showNotification('Logged out successfully');
+    } catch (error) {
+      showNotification(error.message, 'error');
+    }
+  };
+  
+  // Add to cart handler
+  const handleAddToCart = async (exam) => {
+    try {
+      // Check if item is already in cart
+      if (cart.some(item => item.id === exam.id)) {
+        showNotification(`${exam.title} is already in your cart`, 'info');
+        return;
       }
-      return item;
-    });
-    
-    setCart(updatedCart);
-    localStorage.setItem('cart', JSON.stringify(updatedCart));
+      
+      const updatedCart = await addToCart(exam);
+      setCart(updatedCart);
+      showNotification(`${exam.title} added to cart`);
+    } catch (error) {
+      showNotification(error.message, 'error');
+    }
   };
   
-  const clearCart = () => {
-    setCart([]);
-    localStorage.removeItem('cart');
-    showNotification('Cart has been cleared');
+  // Remove from cart handler
+  const handleRemoveFromCart = async (examId) => {
+    try {
+      const examToRemove = cart.find(item => item.id === examId);
+      const updatedCart = await removeFromCart(examId);
+      setCart(updatedCart);
+      
+      if (examToRemove) {
+        showNotification(`${examToRemove.title} removed from cart`, 'warning');
+      }
+    } catch (error) {
+      showNotification(error.message, 'error');
+    }
   };
   
+  // Update cart item quantity handler
+  const handleUpdateCartItemQuantity = async (examId, quantity) => {
+    try {
+      const updatedCart = await updateCartItemQuantity(examId, quantity);
+      setCart(updatedCart);
+    } catch (error) {
+      showNotification(error.message, 'error');
+    }
+  };
+  
+  // Clear cart handler
+  const handleClearCart = async () => {
+    try {
+      await clearCart();
+      setCart([]);
+      showNotification('Cart has been cleared');
+    } catch (error) {
+      showNotification(error.message, 'error');
+    }
+  };
+  
+  // Calculate cart total
   const getCartTotal = () => {
     return cart.reduce((total, item) => {
       const quantity = item.quantity || 1;
@@ -125,7 +186,6 @@ function App() {
           onLogout={logout} 
           cartItems={cart.length}
           cartTotal={getCartTotal()}
-          cart={cart}  // Pass the full cart array
         />
         
         {/* Notification component */}
@@ -142,26 +202,47 @@ function App() {
                 <Dashboard user={user} /> : 
                 <EnhancedHomePage 
                   isAuthenticated={isAuthenticated}
-                  addToCart={addToCart}
-                  removeFromCart={removeFromCart}
+                  addToCart={handleAddToCart}
+                  removeFromCart={handleRemoveFromCart}
                   cart={cart}
                 />
             } />
-            <Route path="/login" element={!isAuthenticated ? <Login onLogin={login} /> : <Navigate to="/" />} />
-            <Route path="/register" element={!isAuthenticated ? <Register onRegister={login} /> : <Navigate to="/" />} />
-            <Route path="/dashboard" element={isAuthenticated ? <Dashboard user={user} /> : <Navigate to="/login" />} />
-            <Route path="/tests" element={isAuthenticated ? <TestList user={user} /> : <Navigate to="/login" />} />
-            <Route path="/tests/:testId" element={isAuthenticated ? <TestDetails user={user} /> : <Navigate to="/login" />} />
-            <Route path="/attempt/:testId" element={isAuthenticated ? <TestAttempt user={user} /> : <Navigate to="/login" />} />
-            <Route path="/history" element={isAuthenticated ? <AttemptHistory user={user} /> : <Navigate to="/login" />} />
+            <Route path="/login" element={!isAuthenticated ? 
+              <Login onLogin={login} /> : 
+              <Navigate to="/" />
+            } />
+            <Route path="/register" element={!isAuthenticated ? 
+              <Register onRegister={login} /> : 
+              <Navigate to="/" />
+            } />
+            <Route path="/dashboard" element={isAuthenticated ? 
+              <Dashboard user={user} /> : 
+              <Navigate to="/login" />
+            } />
+            <Route path="/tests" element={isAuthenticated ? 
+              <TestList user={user} /> : 
+              <Navigate to="/login" />
+            } />
+            <Route path="/tests/:testId" element={isAuthenticated ? 
+              <TestDetails user={user} /> : 
+              <Navigate to="/login" />
+            } />
+            <Route path="/attempt/:testId" element={isAuthenticated ? 
+              <TestAttempt user={user} /> : 
+              <Navigate to="/login" />
+            } />
+            <Route path="/history" element={isAuthenticated ? 
+              <AttemptHistory user={user} /> : 
+              <Navigate to="/login" />
+            } />
             
             {/* Updated exam routes */}
             <Route path="/exams" element={
               <EnhancedHomePage
                 user={user} 
                 isAuthenticated={isAuthenticated} 
-                addToCart={addToCart}
-                removeFromCart={removeFromCart}
+                addToCart={handleAddToCart}
+                removeFromCart={handleRemoveFromCart}
                 cart={cart}
                 showAllExams={true}
               />
@@ -170,8 +251,8 @@ function App() {
               <ExamDetails 
                 user={user} 
                 isAuthenticated={isAuthenticated} 
-                addToCart={addToCart}
-                removeFromCart={removeFromCart}
+                addToCart={handleAddToCart}
+                removeFromCart={handleRemoveFromCart}
                 cart={cart}
               />
             } />
@@ -179,23 +260,27 @@ function App() {
             <Route path="/cart" element={
               <Cart 
                 cart={cart} 
-                removeFromCart={removeFromCart}
-                clearCart={clearCart}
+                removeFromCart={handleRemoveFromCart}
+                updateQuantity={handleUpdateCartItemQuantity}
+                clearCart={handleClearCart}
                 cartTotal={getCartTotal()}
                 isAuthenticated={isAuthenticated}
               />
             } />
-            {/* Updated checkout route using the Enhanced Checkout */}
             <Route path="/checkout" element={
               <Checkout 
                 cart={cart} 
                 user={user} 
-                clearCart={clearCart} 
-                removeFromCart={removeFromCart}
-                updateQuantity={updateCartItemQuantity}
+                clearCart={handleClearCart} 
+                removeFromCart={handleRemoveFromCart}
+                updateQuantity={handleUpdateCartItemQuantity}
                 cartTotal={getCartTotal()} 
                 onLogin={login}
               /> 
+            } />
+            <Route path="/profile" element={isAuthenticated ? 
+              <Profile user={user} /> : 
+              <Navigate to="/login" />
             } />
           </Routes>
         </main>

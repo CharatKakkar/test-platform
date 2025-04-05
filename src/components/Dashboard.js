@@ -1,6 +1,9 @@
 // components/Dashboard.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { getUserExamHistory } from '../services/examService';
+import { db } from '../firebase';
+import { collection, getDocs, query, where, limit, orderBy } from 'firebase/firestore';
 
 function Dashboard({ user }) {
   const [recentTests, setRecentTests] = useState([]);
@@ -9,23 +12,64 @@ function Dashboard({ user }) {
     averageScore: 0,
     testsAvailable: 0
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulated data loading - in a real app, this would be an API call
-    setTimeout(() => {
-      // Mock data
-      setRecentTests([
-        { id: 1, title: 'Demo Test', date: '2025-03-15', score: '85%', status: 'completed' },
-        { id: 2, title: 'Practice Test 1', date: '2025-03-14', score: '78%', status: 'completed' }
-      ]);
-      
-      setStats({
-        testsCompleted: 2,
-        averageScore: 81.5,
-        testsAvailable: 5
-      });
-    }, 300);
-  }, []);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch recent test attempts
+        const examHistory = await getUserExamHistory();
+        
+        // Format test attempts for display
+        const recentTestsData = examHistory.slice(0, 3).map(attempt => {
+          // Convert Firestore timestamp to Date if needed
+          const attemptDate = attempt.date?.toDate ? 
+            attempt.date.toDate().toISOString().split('T')[0] : 
+            new Date(attempt.date).toISOString().split('T')[0];
+            
+          return {
+            id: attempt.id,
+            examId: attempt.examId,
+            title: attempt.examTitle || `Exam ${attempt.examId}`,
+            date: attemptDate,
+            score: `${Math.round(attempt.score.percentage || attempt.score)}%`,
+            status: 'completed'
+          };
+        });
+        
+        setRecentTests(recentTestsData);
+        
+        // Calculate stats from exam history
+        const completedTests = examHistory.length;
+        const averageScore = completedTests > 0 
+          ? examHistory.reduce((sum, attempt) => sum + (attempt.score.percentage || attempt.score), 0) / completedTests
+          : 0;
+          
+        // Get count of available exams
+        const examsSnapshot = await getDocs(collection(db, 'exams'));
+        const availableExams = examsSnapshot.size;
+        
+        setStats({
+          testsCompleted: completedTests,
+          averageScore: Math.round(averageScore * 10) / 10, // Round to 1 decimal place
+          testsAvailable: availableExams
+        });
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user.id]);
+
+  if (loading) {
+    return <div className="loading">Loading dashboard data...</div>;
+  }
 
   return (
     <div className="dashboard">
@@ -56,7 +100,7 @@ function Dashboard({ user }) {
                 <p>Date: {test.date}</p>
                 <p>Score: {test.score}</p>
                 <div className="test-card-actions">
-                  <Link to={`/tests/${test.id}`} className="btn-secondary">View Details</Link>
+                  <Link to={`/exams/${test.examId}`} className="btn-secondary">View Details</Link>
                 </div>
               </div>
             ))}
@@ -67,11 +111,11 @@ function Dashboard({ user }) {
       </section>
       
       <div className="quick-actions">
-        <Link to="/tests" className="btn-primary">Browse Tests</Link>
-        <Link to="/tests/1" className="btn-secondary">Take Demo Test</Link>
+        <Link to="/exams" className="btn-primary">Browse Exams</Link>
+        <Link to="/demo/exam1" className="btn-secondary">Take Demo Test</Link>
       </div>
     </div>
   );
 }
 
-export default Dashboard
+export default Dashboard;
