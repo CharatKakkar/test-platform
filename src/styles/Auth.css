@@ -1,0 +1,149 @@
+/* src/styles/Auth.css */
+.auth-container {
+  max-width: 400px;
+  margin: 40px auto;
+  padding: 30px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.auth-container h2 {
+  margin-bottom: 25px;
+  color: #333;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+.auth-container button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.auth-container button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.auth-container p {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.auth-container a {
+  color: #4a90e2;
+  text-decoration: none;
+}
+
+.auth-container a:hover {
+  text-decoration: underline;
+}
+
+
+.google-auth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 12px 16px;
+  background-color: white;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #3c4043;
+  cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.google-auth-btn:hover {
+  background-color: #f8f9fa;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.google-auth-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.3);
+}
+
+.google-auth-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.google-icon {
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.auth-footer {
+  margin-top: 25px;
+  color: #666;
+}
+
+.auth-footer a {
+  color: #4a90e2;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+.error {
+  color: #e2574c;
+  background-color: #ffebee;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+/* Divider */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+  color: #777;
+  font-size: 0.9rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid #dddddd;
+}
+
+.auth-divider span {
+  padding: 0 10px;
+}

@@ -336,8 +336,6 @@
   /* Notification style */
   .notification {
     position: fixed;
-    top: 20px;
-    right: 20px;
     background-color: #5cb85c;
     color: white;
     padding: 15px 20px;
@@ -345,6 +343,11 @@
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
     z-index: 1000;
     animation: slideIn 0.3s ease-out;
+    top: 20px;     /* Keep this as is, or adjust to your preference */
+    left: 50%;     /* Center horizontally */
+    right: auto;   /* Override any right positioning */
+    transform: translateX(-50%);  /* Center the element perfectly */
+    
   }
   
   @keyframes slideIn {
