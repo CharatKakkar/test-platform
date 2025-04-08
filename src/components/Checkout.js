@@ -1,4 +1,4 @@
-// components/EnhancedCheckout.js
+// components/Checkout.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './Checkout.css';
@@ -7,6 +7,7 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
   const navigate = useNavigate();
   const [examResults, setExamResults] = useState(null);
   const [activeTab, setActiveTab] = useState(user ? 'checkout' : 'login');
+  
   // Parse user's name into first and last name if available
   const parseUserName = () => {
     if (!user || !user.name) return { firstName: '', lastName: '' };
@@ -52,14 +53,6 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
     }
   }, [user]);
   
-  // Login/Register form data
-  const [authData, setAuthData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-  
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [couponApplied, setCouponApplied] = useState(false);
@@ -97,17 +90,6 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
         [name]: ''
       }));
     }
-  };
-
-  const handleAuthInputChange = (e) => {
-    const { name, value } = e.target;
-    setAuthData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Clear auth error
-    setAuthError('');
   };
 
   const validateForm = () => {
@@ -150,25 +132,6 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
     return Object.keys(newErrors).length === 0;
   };
 
-  const validateAuthForm = () => {
-    if (activeTab === 'login') {
-      if (!authData.email || !authData.password) {
-        setAuthError('Email and password are required');
-        return false;
-      }
-    } else if (activeTab === 'register') {
-      if (!authData.name || !authData.email || !authData.password) {
-        setAuthError('All fields are required');
-        return false;
-      }
-      if (authData.password !== authData.confirmPassword) {
-        setAuthError('Passwords do not match');
-        return false;
-      }
-    }
-    return true;
-  };
-
   const applyCoupon = () => {
     // Simple coupon validation
     if (formData.couponCode.toUpperCase() === 'DEMO50') {
@@ -208,62 +171,17 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
     }
   };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    
-    if (!validateAuthForm()) return;
-    
+  const handleGoogleAuth = async (isLogin = true) => {
     setLoading(true);
+    setAuthError('');
     
-    // Simulate API login
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Create mock user data (in a real app, this would come from your backend)
-      const userData = { 
-        id: 1, 
-        name: 'Test User', 
-        email: authData.email 
-      };
-      
-      // Call the login function from props (from App.js)
-      onLogin(userData);
-      
-      // Switch to checkout form
-      setActiveTab('checkout');
+      // Call onLogin with Google authentication flag
+      await onLogin(null, null, true);
+      // No need to navigate here as user state change will trigger useEffect
     } catch (error) {
-      setAuthError('Login failed. Please check your credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    
-    if (!validateAuthForm()) return;
-    
-    setLoading(true);
-    
-    // Simulate API registration
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Create user data (in a real app, this would come from your backend)
-      const userData = { 
-        id: Date.now(), 
-        name: authData.name, 
-        email: authData.email 
-      };
-      
-      // Call the login function from props (from App.js)
-      onLogin(userData);
-      
-      // Switch to checkout form
-      setActiveTab('checkout');
-    } catch (error) {
-      setAuthError('Registration failed. Please try again.');
-    } finally {
+      console.error("Google auth error:", error);
+      setAuthError(error.message || 'Google authentication failed. Please try again.');
       setLoading(false);
     }
   };
@@ -353,12 +271,6 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
               >
                 Register
               </button>
-              <button 
-                className={`auth-tab ${activeTab === 'guest' ? 'active' : ''}`}
-                onClick={() => setActiveTab('guest')}
-              >
-                Guest Checkout
-              </button>
             </div>
             
             {authError && (
@@ -367,278 +279,27 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
               </div>
             )}
             
-            {activeTab === 'login' && (
-              <form onSubmit={handleLogin}>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="login-email">Email</label>
-                  <input
-                    id="login-email"
-                    type="email"
-                    name="email"
-                    value={authData.email}
-                    onChange={handleAuthInputChange}
-                    className="form-input"
-                    placeholder="your@email.com"
-                    required
-                  />
+            {/* Google Login Button for either tab */}
+            <div className="social-auth-container mt-6 mb-4">
+              <button 
+                onClick={() => handleGoogleAuth(activeTab === 'login')} 
+                className="google-auth-btn"
+                disabled={loading}
+                type="button"
+              >
+                <div className="google-icon">
+                  <svg viewBox="0 0 24 24" width="18" height="18">
+                    <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032 s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2 C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" 
+                    fill="#4285F4"/>
+                  </svg>
                 </div>
-                
-                <div className="form-group">
-                  <label className="form-label" htmlFor="login-password">Password</label>
-                  <input
-                    id="login-password"
-                    type="password"
-                    name="password"
-                    value={authData.password}
-                    onChange={handleAuthInputChange}
-                    className="form-input"
-                    placeholder="********"
-                    required
-                  />
-                </div>
-                
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn btn-primary btn-full"
-                >
-                  {loading ? 'Logging in...' : 'Login & Continue'}
-                </button>
-              </form>
-            )}
+                <span>{loading ? 'Processing...' : activeTab === 'login' ? 'Continue with Google' : 'Sign up with Google'}</span>
+              </button>
+            </div>
             
-            {activeTab === 'register' && (
-              <form onSubmit={handleRegister}>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="reg-name">Full Name</label>
-                  <input
-                    id="reg-name"
-                    type="text"
-                    name="name"
-                    value={authData.name}
-                    onChange={handleAuthInputChange}
-                    className="form-input"
-                    placeholder="John Doe"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label" htmlFor="reg-email">Email</label>
-                  <input
-                    id="reg-email"
-                    type="email"
-                    name="email"
-                    value={authData.email}
-                    onChange={handleAuthInputChange}
-                    className="form-input"
-                    placeholder="your@email.com"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label" htmlFor="reg-password">Password</label>
-                  <input
-                    id="reg-password"
-                    type="password"
-                    name="password"
-                    value={authData.password}
-                    onChange={handleAuthInputChange}
-                    className="form-input"
-                    placeholder="********"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label" htmlFor="reg-confirm-password">Confirm Password</label>
-                  <input
-                    id="reg-confirm-password"
-                    type="password"
-                    name="confirmPassword"
-                    value={authData.confirmPassword}
-                    onChange={handleAuthInputChange}
-                    className="form-input"
-                    placeholder="********"
-                    required
-                  />
-                </div>
-                
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn btn-primary btn-full"
-                >
-                  {loading ? 'Creating account...' : 'Create Account & Continue'}
-                </button>
-              </form>
-            )}
-            
-            {activeTab === 'guest' && (
-              <>
-                <p className="mb-6 text-gray-600">
-                  Continue as a guest without creating an account. You can create an account later.
-                </p>
-                
-                <form onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="firstName">First Name</label>
-                      <input
-                        id="firstName"
-                        name="firstName"
-                        type="text"
-                        value={formData.firstName}
-                        onChange={handleInputChange}
-                        className={`form-input ${errors.firstName ? 'error' : ''}`}
-                        required
-                      />
-                      {errors.firstName && <p className="error-message">{errors.firstName}</p>}
-                    </div>
-                    
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="lastName">Last Name</label>
-                      <input
-                        id="lastName"
-                        name="lastName"
-                        type="text"
-                        value={formData.lastName}
-                        onChange={handleInputChange}
-                        className={`form-input ${errors.lastName ? 'error' : ''}`}
-                        required
-                      />
-                      {errors.lastName && <p className="error-message">{errors.lastName}</p>}
-                    </div>
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="email">Email Address</label>
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className={`form-input ${errors.email ? 'error' : ''}`}
-                      required
-                    />
-                    {errors.email && <p className="error-message">{errors.email}</p>}
-                  </div>
-                
-                  
-                  <div className="border-t border-gray-200 pt-6 mb-6">
-                    <h2 className="text-xl font-semibold mb-4">Payment Method</h2>
-                    
-                    <div className="payment-methods">
-                      <div className="payment-option">
-                        <input
-                          id="credit"
-                          name="paymentMethod"
-                          type="radio"
-                          value="credit"
-                          checked={formData.paymentMethod === 'credit'}
-                          onChange={handleInputChange}
-                          className="payment-radio"
-                        />
-                        <label htmlFor="credit" className="text-gray-700">
-                          Credit / Debit Card
-                        </label>
-                      </div>
-                      
-                      <div className="payment-option">
-                        <input
-                          id="paypal"
-                          name="paymentMethod"
-                          type="radio"
-                          value="paypal"
-                          checked={formData.paymentMethod === 'paypal'}
-                          onChange={handleInputChange}
-                          className="payment-radio"
-                        />
-                        <label htmlFor="paypal" className="text-gray-700">
-                          PayPal
-                        </label>
-                      </div>
-                    </div>
-                    
-                    {formData.paymentMethod === 'credit' && (
-                      <div className="payment-details">
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="cardNumber">Card Number</label>
-                          <input
-                            id="cardNumber"
-                            name="cardNumber"
-                            type="text"
-                            maxLength="19"
-                            placeholder="1234 5678 9012 3456"
-                            value={formData.cardNumber}
-                            onChange={handleInputChange}
-                            className={`form-input ${errors.cardNumber ? 'error' : ''}`}
-                          />
-                          {errors.cardNumber && <p className="error-message">{errors.cardNumber}</p>}
-                        </div>
-                        
-                        <div className="card-row">
-                          <div className="form-group">
-                            <label className="form-label" htmlFor="cardExpiry">Expiry Date (MM/YY)</label>
-                            <input
-                              id="cardExpiry"
-                              name="cardExpiry"
-                              type="text"
-                              placeholder="MM/YY"
-                              maxLength="5"
-                              value={formData.cardExpiry}
-                              onChange={handleInputChange}
-                              className={`form-input ${errors.cardExpiry ? 'error' : ''}`}
-                            />
-                            {errors.cardExpiry && <p className="error-message">{errors.cardExpiry}</p>}
-                          </div>
-                          
-                          <div className="form-group">
-                            <label className="form-label" htmlFor="cardCvc">CVC</label>
-                            <input
-                              id="cardCvc"
-                              name="cardCvc"
-                              type="text"
-                              placeholder="123"
-                              maxLength="4"
-                              value={formData.cardCvc}
-                              onChange={handleInputChange}
-                              className={`form-input ${errors.cardCvc ? 'error' : ''}`}
-                            />
-                            {errors.cardCvc && <p className="error-message">{errors.cardCvc}</p>}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {formData.paymentMethod === 'paypal' && (
-                      <div className="payment-details text-center">
-                        <p className="mb-4">You will be redirected to PayPal to complete your purchase after submission.</p>
-                        <div className="flex justify-center">
-                          <img src="/api/placeholder/120/40" alt="PayPal" className="h-10" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {errors.submit && (
-                    <div className="mb-6 p-3 bg-red-50 text-red-600 rounded-md">
-                      {errors.submit}
-                    </div>
-                  )}
-                  
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="btn btn-primary btn-full"
-                  >
-                    {loading ? 'Processing...' : 'Complete Purchase'}
-                  </button>
-                </form>
-              </>
-            )}
+            <div className="auth-info-text text-center mb-4 text-gray-600">
+              <p>{activeTab === 'login' ? 'Login with your Google account to continue to checkout.' : 'Create an account with Google to checkout faster in the future.'}</p>
+            </div>
           </div>
           
           {/* Order summary - 2 columns */}

@@ -348,3 +348,52 @@
       grid-template-columns: 1fr;
     }
   }
+
+  /* Add to your Checkout.css file */
+
+/* Google authentication button */
+.social-auth-container {
+  margin: 20px 0;
+}
+
+.google-auth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 12px 16px;
+  background-color: white;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #3c4043;
+  cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.google-auth-btn:hover {
+  background-color: #f8f9fa;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.google-auth-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.3);
+}
+
+.google-auth-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.google-icon {
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.auth-info-text {
+  color: #666;
+  font-size: 14px;
+  margin: 10px 0;
+}
