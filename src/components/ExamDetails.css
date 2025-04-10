@@ -397,3 +397,14 @@
       padding: 12px 15px;
     }
   }
+
+  .practice-tests-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #3498db;
+  }
+  
+  .practice-tests-btn:hover {
+    background-color: #2980b9;
+  }

@@ -1,0 +1,531 @@
+/* PracticeTestsList.css */
+.practice-tests-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .exam-header {
+    margin-bottom: 25px;
+    text-align: center;
+  }
+  
+  .exam-header h1 {
+    font-size: 2rem;
+    margin-bottom: 8px;
+    color: #333;
+  }
+  
+  .exam-category {
+    display: inline-block;
+    padding: 5px 15px;
+    background-color: #f0f8ff;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    color: #4a90e2;
+    font-weight: 500;
+  }
+  
+  .exam-info-panel {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 40px;
+    background-color: white;
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  }
+  
+  .exam-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .stat-card {
+    text-align: center;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    min-width: 120px;
+  }
+  
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #4a90e2;
+    margin-bottom: 5px;
+  }
+  
+  .stat-label {
+    font-size: 0.9rem;
+    color: #666;
+  }
+  
+  .progress-circle {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 5px;
+  }
+  
+  .progress-circle svg {
+    width: 100%;
+    height: 100%;
+  }
+  
+  .progress-circle-bg {
+    fill: none;
+    stroke: #eee;
+    stroke-width: 3;
+  }
+  
+  .progress-circle-fill {
+    fill: none;
+    stroke: #4a90e2;
+    stroke-width: 3;
+    stroke-linecap: round;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+    transition: stroke-dasharray 0.3s ease;
+  }
+  
+  .progress-text {
+    font-size: 10px;
+    text-anchor: middle;
+    fill: #4a90e2;
+    font-weight: 600;
+  }
+  
+  .exam-description {
+    flex: 1;
+  }
+  
+  .exam-description h2 {
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+    color: #333;
+  }
+  
+  .exam-description p {
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  
+  .exam-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+  }
+  
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    background-color: #f9f9f9;
+    padding: 12px;
+    border-radius: 6px;
+  }
+  
+  .info-label {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 5px;
+  }
+  
+  .info-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .tests-filter-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  
+  .tests-filter-container h2 {
+    font-size: 1.5rem;
+    margin: 0;
+    color: #333;
+  }
+  
+  .filter-tabs {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+  }
+  
+  .filter-tabs button {
+    background: none;
+    border: none;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    color: #555;
+    cursor: pointer;
+    border-radius: 20px;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+  }
+  
+  .filter-tabs button:hover {
+    background-color: #f0f0f0;
+    color: #333;
+  }
+  
+  .filter-tabs button.active {
+    background-color: #4a90e2;
+    color: white;
+  }
+  
+  .practice-tests-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .practice-test-card {
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.3s ease;
+  }
+  
+  .practice-test-card:hover {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  }
+  
+  .test-card-header {
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .test-info {
+    flex: 1;
+  }
+  
+  .test-info h3 {
+    font-size: 1.2rem;
+    margin: 0 0 10px 0;
+    color: #333;
+  }
+  
+  .test-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  
+  .test-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.9rem;
+    color: #666;
+  }
+  
+  .difficulty-badge {
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  
+  .difficulty-badge.easy {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+  }
+  
+  .difficulty-badge.medium {
+    background-color: #fff8e1;
+    color: #f57f17;
+  }
+  
+  .difficulty-badge.hard {
+    background-color: #fbe9e7;
+    color: #d84315;
+  }
+  
+  .difficulty-badge.challenge {
+    background-color: #ffebee;
+    color: #c62828;
+  }
+  
+  .test-progress {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .test-stats {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .attempts-info {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.9rem;
+    color: #666;
+  }
+  
+  .best-score {
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+  
+  .best-score.passing {
+    color: #2ecc71;
+  }
+  
+  .best-score.failing {
+    color: #e74c3c;
+  }
+  
+  .not-started {
+    font-size: 0.9rem;
+    color: #777;
+    font-style: italic;
+  }
+  
+  .expand-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+    background-color: #ae3c3c;
+  }
+  
+  .expand-btn:hover {
+    background-color: #f5f5f5;
+  }
+  
+  .expand-btn svg {
+    transition: transform 0.3s ease;
+  }
+  
+  .expand-btn svg.rotate {
+    transform: rotate(180deg);
+  }
+  
+  .test-card-details {
+    padding: 0 20px 20px;
+    animation: slideDown 0.3s ease;
+  }
+  
+  .test-description {
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  
+  .test-history {
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .test-history h4 {
+    font-size: 1rem;
+    margin: 0 0 15px 0;
+    color: #333;
+  }
+  
+  .history-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 15px;
+  }
+  
+  .history-stat {
+    text-align: center;
+  }
+  
+  .history-stat .stat-label {
+    display: block;
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 5px;
+  }
+  
+  .history-stat .stat-value {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .history-stat .stat-value.passing {
+    color: #2ecc71;
+  }
+  
+  .history-stat .stat-value.failing {
+    color: #e74c3c;
+  }
+  
+  .test-actions {
+    margin-top: 20px;
+  }
+  
+  .mode-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+  }
+  
+  .mode-option {
+    background-color: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+  }
+  
+  .mode-option h4 {
+    font-size: 1.1rem;
+    margin: 0 0 10px 0;
+    color: #333;
+  }
+  
+  .mode-option p {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+  }
+  
+  .mode-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    font-size: 0.95rem;
+  }
+  
+  .mode-btn.exam-mode {
+    background-color: #e74c3c;
+    color: white;
+  }
+  
+  .mode-btn.exam-mode:hover {
+    background-color: #c0392b;
+  }
+  
+  .mode-btn.practice-mode {
+    background-color: #3498db;
+    color: white;
+  }
+  
+  .mode-btn.practice-mode:hover {
+    background-color: #2980b9;
+  }
+  
+  .no-tests-message {
+    text-align: center;
+    padding: 30px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    color: #666;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .exam-info-panel {
+      flex-direction: column;
+    }
+    
+    .exam-stats {
+      flex-direction: row;
+      justify-content: space-around;
+      flex-wrap: wrap;
+    }
+    
+    .test-card-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 15px;
+    }
+    
+    .test-progress {
+      width: 100%;
+      justify-content: space-between;
+    }
+    
+    .mode-options {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .filter-tabs {
+      width: 100%;
+      justify-content: space-between;
+    }
+    
+    .filter-tabs button {
+      padding: 6px 10px;
+      font-size: 0.8rem;
+    }
+    
+    .history-stats {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .expand-btn-rectangular {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    color: #555;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .expand-btn-rectangular:hover {
+    background-color: #e0e0e0;
+    color: #333;
+  }
+  
+  .expand-btn-rectangular svg {
+    transition: transform 0.3s ease;
+  }
+  
+  .expand-btn-rectangular svg.rotate {
+    transform: rotate(180deg);
+  }
+
+  .test-card-header {
+    border-bottom: 1px solid #eee;
+  }
+  
+  .test-card-details {
+    padding: 20px;
+  }

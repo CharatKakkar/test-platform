@@ -7,6 +7,8 @@ import { auth } from './firebase';
 // Components
 import Header from './components/Header';
 import EnhancedHomePage from './components/EnhancedHomePage';
+import PracticeTestsList from './components/PracticeTestsList';
+import EnhancedPracticeTest from './components/EnhancedPracticeTest.js';
 import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
@@ -319,6 +321,12 @@ const handleRegister = async (name, email, password, isGoogleAuth = false) => {
               />
             } />
             <Route path="/demo/:examId" element={<DemoExam />} />
+              {/* New routes for the enhanced practice test */}
+  <Route path="/practice-test/:testId" element={isAuthenticated ? 
+    <EnhancedPracticeTest user={user} /> : 
+    <Navigate to="/login" />
+  } />
+
             <Route path="/cart" element={
               <Cart 
                 cart={cart} 
@@ -329,6 +337,12 @@ const handleRegister = async (name, email, password, isGoogleAuth = false) => {
                 isAuthenticated={isAuthenticated}
               />
             } />
+
+            <Route path="/exam/:examId/practice-tests" element={isAuthenticated ? 
+              <PracticeTestsList user={user} /> : 
+              <Navigate to="/login" />
+            } />
+
             <Route path="/checkout" element={
               <Checkout 
                 cart={cart} 
