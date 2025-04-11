@@ -1,77 +1,83 @@
-
 // components/TestList.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import purchasedExamsService from '../services/purchasedExamsService.js';
+import Loading from './Loading';
+import './TestList.css';
 
-function TestList() {
-  const [tests, setTests] = useState([]);
+function TestList({ user }) {
+  const [purchasedExams, setPurchasedExams] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate API call to get tests
-    setTimeout(() => {
-      const mockTests = [
-        { 
-          id: 1, 
-          title: 'Demo Test', 
-          description: 'Try our demo test for free!', 
-          questions: 10, 
-          time: 15, 
-          price: 'Free' 
-        },
-        { 
-          id: 2, 
-          title: 'Practice Test 1', 
-          description: 'Comprehensive practice test with detailed feedback', 
-          questions: 50, 
-          time: 60, 
-          price: '$12.99' 
-        },
-        { 
-          id: 3, 
-          title: 'Practice Test 2', 
-          description: 'Advanced concepts with challenging questions', 
-          questions: 60, 
-          time: 90, 
-          price: '$14.99' 
-        },
-        { 
-          id: 4, 
-          title: 'Quick Assessment', 
-          description: 'Brief assessment to identify knowledge gaps', 
-          questions: 25, 
-          time: 30, 
-          price: '$7.99' 
-        }
-      ];
-      
-      setTests(mockTests);
-      setLoading(false);
-    }, 500);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch purchased certification exams
+        const exams = await purchasedExamsService.getPurchasedExams();
+        
+        // Format the purchased exams
+        const formattedExams = exams.map(exam => ({
+          ...exam,
+          practiceTestsCount: 6, // Each exam has 6 practice tests
+          description: `Complete certification exam with 6 practice tests`,
+          lastActivity: exam.lastAccessDate || exam.purchaseDate
+        }));
+        
+        setPurchasedExams(formattedExams);
+      } catch (error) {
+        console.error("Error fetching purchased exams:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
   }, []);
 
   if (loading) {
-    return <div className="loading">Loading tests...</div>;
+    return <Loading text="Loading your purchased exams..." />;
   }
 
   return (
     <div className="test-list-container">
-      <h1>Available Tests</h1>
-      <div className="test-list">
-        {tests.map(test => (
-          <div key={test.id} className="test-card">
-            <h2>{test.title}</h2>
-            <p>{test.description}</p>
-            <div className="test-details">
-              <span><strong>Questions:</strong> {test.questions}</span>
-              <span><strong>Time:</strong> {test.time} min</span>
-              <span><strong>Price:</strong> {test.price}</span>
+      <h1>Your Purchased Exams</h1>
+      
+      {purchasedExams.length === 0 ? (
+        <div className="no-items">
+          <p>You haven't purchased any certification exams yet.</p>
+          <Link to="/exams" className="btn-primary">Browse Exams</Link>
+        </div>
+      ) : (
+        <div className="test-list">
+          {purchasedExams.map(exam => (
+            <div key={exam.id} className="test-card">
+              <div className="exam-badge">Certification Exam</div>
+              <h2>{exam.title}</h2>
+              <p>{exam.description}</p>
+              
+              <div className="test-details">
+                <span className="practice-tests-count">
+                  <strong>Includes:</strong> 6 Practice Tests
+                </span>
+                <span><strong>Purchase Date:</strong> {new Date(exam.purchaseDate).toLocaleDateString()}</span>
+                <span><strong>Valid Until:</strong> {new Date(exam.expiryDate).toLocaleDateString()}</span>
+              </div>
+              
+              <div className="test-actions">
+                <Link to={`/exam/${exam.id}/practice-tests`} className="btn-primary">
+                  View Practice Tests
+                </Link>
+              </div>
             </div>
-            <div className="test-actions">
-              <Link to={`/tests/${test.id}`} className="btn-primary">View Details</Link>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
+      )}
+      
+      <div className="browse-more">
+        <Link to="/exams" className="btn-secondary">
+          Browse More Certification Exams
+        </Link>
       </div>
     </div>
   );

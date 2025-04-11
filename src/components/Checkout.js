@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './Checkout.css';
+import purchasedExamsService from '../services/purchasedExamsService.js';
+
 
 const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, cartTotal = 0, onLogin }) => {
   const navigate = useNavigate();
@@ -145,31 +147,42 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+// Inside the Checkout component
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateForm()) return;
+  
+  setLoading(true);
+  
+  // Simulate API call to process payment
+  try {
+    // Process payment (in a real app, this would integrate with a payment processor)
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
-    if (!validateForm()) return;
-    
-    setLoading(true);
-    
-    // Simulate API call to process payment
-    try {
-      // Replace with actual payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setOrderComplete(true);
-      
-      // Clear cart and exam results after successful checkout
-      clearCart();
-      localStorage.removeItem('examResults');
-    } catch (error) {
-      setErrors(prev => ({
-        ...prev,
-        submit: 'Payment processing failed. Please try again.'
-      }));
-    } finally {
-      setLoading(false);
+    // Mark exams as purchased in Firebase
+    if (cart && cart.length > 0) {
+      const purchaseSuccess = await purchasedExamsService.processPurchase(cart);
+      if (!purchaseSuccess) {
+        throw new Error('Failed to process purchase');
+      }
     }
-  };
+    
+    setOrderComplete(true);
+    
+    // Clear cart after successful checkout
+    clearCart();
+    localStorage.removeItem('examResults');
+  } catch (error) {
+    setErrors(prev => ({
+      ...prev,
+      submit: 'Payment processing failed. Please try again.'
+    }));
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleGoogleAuth = async (isLogin = true) => {
     setLoading(true);
