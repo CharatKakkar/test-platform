@@ -73,6 +73,7 @@ export const getAllUserProgress = async () => {
 
 // Update progress for a specific test
 export const updateTestProgress = async (examId, testId, resultData) => {
+
   try {
     const user = auth.currentUser;
     if (!user) {
@@ -146,33 +147,33 @@ export const updateTestProgress = async (examId, testId, resultData) => {
 
 // Add attempt to history collection
 export const addAttemptToHistory = async (examId, testId, resultData) => {
-  try {
-    const user = auth.currentUser;
-    if (!user) {
-      console.error("No authenticated user found");
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error("No authenticated user found");
+        return false;
+      }
+      
+      // Add to attempts collection
+      await addDoc(collection(db, "testAttempts"), {
+        userId: user.uid,
+        examId: examId,
+        testId: testId,
+        score: resultData.percentage,
+        correctAnswers: resultData.score,
+        totalQuestions: resultData.totalQuestions,
+        isPassed: resultData.isPassed,
+        timeSpent: resultData.timeSpent || null,
+        mode: resultData.mode,  // <-- Here's the mode field
+        createdAt: serverTimestamp()
+      });
+      
+      return true;
+    } catch (error) {
+      console.error("Error adding attempt to history:", error);
       return false;
     }
-    
-    // Add to attempts collection
-    await addDoc(collection(db, "testAttempts"), {
-      userId: user.uid,
-      examId: examId,
-      testId: testId,
-      score: resultData.percentage,
-      correctAnswers: resultData.score,
-      totalQuestions: resultData.totalQuestions,
-      isPassed: resultData.isPassed,
-      timeSpent: resultData.timeSpent || null,
-      mode: resultData.mode,
-      createdAt: serverTimestamp()
-    });
-    
-    return true;
-  } catch (error) {
-    console.error("Error adding attempt to history:", error);
-    return false;
-  }
-};
+  };
 
 // Get user's attempt history for a specific exam
 export const getAttemptHistory = async (examId = null) => {

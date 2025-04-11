@@ -122,20 +122,30 @@ const PracticeTestsList = ({ user }) => {
   };
 
   // Handle reset progress button click
-  const handleResetProgress = async () => {
+// Update the handleResetProgress function in PracticeTestsList.js
+
+const handleResetProgress = async () => {
     setIsResetting(true);
     try {
+      // Reset all progress in Firebase
       await resetAllProgress();
-      // Refetch data after reset
+      
+      // Update local state to reflect the reset
+      setProgressData({}); // Set to empty object immediately without waiting for refetch
+      
+      // Optionally, you can refetch from Firebase to ensure sync
       const examProgress = await getExamProgress(examId);
       setProgressData(examProgress);
+      
+      // Show a success notification (if you have a notification system)
+      console.log('Progress data successfully reset');
     } catch (error) {
       console.error("Error resetting progress:", error);
     } finally {
       setIsResetting(false);
     }
   };
-
+  
   // Filter tests based on selected filter
   const getFilteredTests = () => {
     switch (filter) {

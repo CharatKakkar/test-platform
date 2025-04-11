@@ -291,10 +291,6 @@ const handleRegister = async (name, email, password, isGoogleAuth = false) => {
               <TestDetails user={user} /> : 
               <Navigate to="/login" />
             } />
-            <Route path="/attempt/:testId" element={isAuthenticated ? 
-              <TestAttempt user={user} /> : 
-              <Navigate to="/login" />
-            } />
             <Route path="/history" element={isAuthenticated ? 
               <AttemptHistory user={user} /> : 
               <Navigate to="/login" />
