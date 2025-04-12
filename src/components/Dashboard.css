@@ -166,6 +166,84 @@
     color: #4a5568;
   }
   
+  /* Purchased Exams Section */
+  .purchased-exams-section {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  }
+  
+  .purchased-exams-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+  }
+  
+  .exam-card {
+    background-color: #f8fafc;
+    border-radius: 8px;
+    padding: 1.25rem;
+    border: 1px solid #e2e8f0;
+    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .exam-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+  
+  .exam-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background-color: #ebf4ff;
+    color: #3182ce;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+  }
+  
+  .exam-card h3 {
+    font-size: 1.1rem;
+    margin-top: 0;
+    margin-bottom: 1rem;
+    padding-right: 100px; /* Make room for the badge */
+    color: #2d3748;
+  }
+  
+  .exam-info {
+    margin-bottom: 1rem;
+  }
+  
+  .exam-info p {
+    margin: 0.4rem 0;
+    color: #4a5568;
+    font-size: 0.9rem;
+  }
+  
+  .info-label {
+    font-weight: 500;
+    color: #2d3748;
+  }
+  
+  .exam-card-actions {
+    margin-top: 1.25rem;
+  }
+  
+  .btn-full {
+    width: 100%;
+  }
+  
+  .no-exams {
+    text-align: center;
+    padding: 2.5rem 1rem;
+  }
+  
   .test-card-actions {
     display: flex;
     gap: 0.75rem;
@@ -176,6 +254,8 @@
     flex: 1;
     text-align: center;
   }
+  
+  /* Existing CSS remains unchanged */
   
   /* No Test State */
   .no-tests {

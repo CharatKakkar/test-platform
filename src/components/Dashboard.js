@@ -2,16 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getAttemptHistory } from '../services/progressService';
+import purchasedExamsService from '../services/purchasedExamsService';
 import Loading from './Loading';
-import './Dashboard.css'; // Make sure to create this CSS file
+import './Dashboard.css';
 
 function Dashboard({ user }) {
   const [recentTests, setRecentTests] = useState([]);
+  const [purchasedExams, setPurchasedExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     testsCompleted: 0,
     averageScore: 0,
-    testsAvailable: 5 // This could be fetched from another service
+    purchasedExams: 0
   });
 
   useEffect(() => {
@@ -20,6 +22,9 @@ function Dashboard({ user }) {
       try {
         // Get attempt history from Firebase via the service
         const attemptData = await getAttemptHistory();
+        
+        // Get purchased exams data
+        const examsData = await purchasedExamsService.getPurchasedExams();
         
         // Calculate stats
         const testsCompleted = attemptData.length;
@@ -31,7 +36,7 @@ function Dashboard({ user }) {
         setStats({
           testsCompleted,
           averageScore,
-          testsAvailable: 5 // This could be fetched from another service
+          purchasedExams: examsData.length
         });
         
         // Get the 3 most recent tests
@@ -43,6 +48,16 @@ function Dashboard({ user }) {
         });
         
         setRecentTests(sortedAttempts.slice(0, 3));
+        
+        // Format the purchased exams
+        const formattedExams = examsData.map(exam => ({
+          ...exam,
+          practiceTestsCount: 6, // Each exam has 6 practice tests
+          description: `Complete certification exam with 6 practice tests`,
+          lastActivity: exam.lastAccessDate || exam.purchaseDate
+        }));
+        
+        setPurchasedExams(formattedExams);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -106,10 +121,52 @@ function Dashboard({ user }) {
           <p className="stat-value">{stats.averageScore}%</p>
         </div>
         <div className="stat-card">
-          <h3>Available Tests</h3>
-          <p className="stat-value">{stats.testsAvailable}</p>
+          <h3>Purchased Exams</h3>
+          <p className="stat-value">{stats.purchasedExams}</p>
         </div>
       </div>
+      
+      <section className="purchased-exams-section">
+        <div className="section-header">
+          <h2>Your Purchased Exams</h2>
+          <Link to="/exams" className="view-all-link">Browse More Exams</Link>
+        </div>
+        
+        {purchasedExams.length > 0 ? (
+          <div className="purchased-exams-grid">
+            {purchasedExams.map(exam => (
+              <div key={exam.id} className="exam-card">
+                <div className="exam-badge">Certification Exam</div>
+                <h3>{exam.title}</h3>
+                <div className="exam-info">
+                  <p><span className="info-label">Practice Tests:</span> 6</p>
+                  <p><span className="info-label">Valid Until:</span> {new Date(exam.expiryDate).toLocaleDateString()}</p>
+                </div>
+                <div className="exam-card-actions">
+                  <Link 
+                    to={`/exam/${exam.id}/practice-tests`}
+                    className="btn-primary btn-full"
+                  >
+                    View Practice Tests
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="no-exams">
+            <div className="no-data-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+              </svg>
+            </div>
+            <h3>No Exams Purchased Yet</h3>
+            <p>Browse our catalog to find certification exams that match your career goals</p>
+            <Link to="/exams" className="btn-primary">Browse Exams Catalog</Link>
+          </div>
+        )}
+      </section>
       
       <section className="recent-activity">
         <div className="section-header">
@@ -171,6 +228,7 @@ function Dashboard({ user }) {
           </div>
         )}
       </section>
+    
       
       <div className="quick-actions">
         <Link to="/exams" className="btn-primary">Browse Exams</Link>
