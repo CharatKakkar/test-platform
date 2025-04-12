@@ -1,8 +1,9 @@
-// components/Header.js (Fixed)
+// components/Header.js
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './Home.css';
 import './Cart.css';
+import './Header.css';
 
 function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0, cart = [] }) {
   const navigate = useNavigate();
@@ -27,10 +28,15 @@ function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0,
         <Link to="/">TestPro</Link>
       </div>
       <nav className="nav">
-      { isAuthenticated && <Link to="/">Dashboard</Link>}
-       {/* Show Tests link only for authenticated users */}
-       {isAuthenticated && <Link to="/tests">Tests</Link>}
-      {/*<Link to="/exams">Exams</Link> */}
+        {/* Show navigation links only for authenticated users */}
+        {isAuthenticated && (
+          <>
+            <Link to="/">Dashboard</Link>
+            <Link to="/purchased">My Exams</Link>
+            <Link to="/history">My History</Link>
+            <Link to="/exams">Explore</Link>
+          </>
+        )}
         
         {/* Cart icon with item count */}
         <div className="cart-container">
@@ -110,10 +116,14 @@ function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0,
         
         {isAuthenticated ? (
           <>
-            <Link to="/history">History</Link>
             <div className="user-menu">
-              <span className="username">Welcome, {user.name}</span>
-              <button onClick={handleLogout} className="btn-logout">Logout</button>
+              <div className="dropdown">
+                <span className="username dropdown-toggle">{user.name}</span>
+                <div className="dropdown-content">
+                  <Link to="/order" className="btn-orders">Orders</Link>
+                  <button onClick={handleLogout} className="btn-logout">Logout</button>
+                </div>
+              </div>
             </div>
           </>
         ) : (

@@ -21,6 +21,7 @@ import DemoExam from './components/DemoExam.js';
 import Checkout from './components/Checkout';
 import Footer from './components/Footer';
 import Cart from './components/Cart.js';
+import Order from './components/Order.js';
 
 // Firebase Services
 // Authentication methods for App.js
@@ -295,6 +296,8 @@ const handleRegister = async (name, email, password, isGoogleAuth = false) => {
               <AttemptHistory user={user} /> : 
               <Navigate to="/login" />
             } />
+            <Route path="/order" element={<Order isAuthenticated={isAuthenticated} user={user} />} />
+           
             
             {/* Updated exam routes */}
             <Route path="/exams" element={
