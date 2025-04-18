@@ -3,7 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import Loading from './Loading';
 import './PracticeTestsList.css';
-import { getExamProgress, resetAllProgress } from '../services/progressService';
+import { 
+  getExamById, 
+  getPracticeTestsByExamId, 
+  getUserExamProgress, 
+  resetAllUserProgress 
+} from '../services/firebaseService';
 
 const PracticeTestsList = ({ user }) => {
   const { examId } = useParams();
@@ -15,113 +20,46 @@ const PracticeTestsList = ({ user }) => {
   const [progressData, setProgressData] = useState({});
   const [filter, setFilter] = useState('all');
   const [isResetting, setIsResetting] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchExamAndTests = async () => {
       setLoading(true);
       try {
-        // Use a simplified numeric ID for display purposes regardless of the actual examId
-        const displayId = getDisplayId(examId);
+        // Fetch exam data from Firebase
+        const examData = await getExamById(examId);
         
-        // In a real app, you would fetch this data from your backend
-        // Mock exam data
-        const examData = {
-          id: String(examId), // Store the actual examId for database operations
-          displayId: displayId, // Use this for display purposes
-          title: getExamTitle(displayId),
-          description: 'Comprehensive certification exam to validate your skills and knowledge.',
-          category: getExamCategory(displayId),
-          purchaseDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
-          expiryDate: new Date(Date.now() + 358 * 24 * 60 * 60 * 1000).toISOString(), // 358 days later
-          passingScore: 70
-        };
+        if (!examData) {
+          setError(`Exam with ID ${examId} not found.`);
+          setLoading(false);
+          return;
+        }
         
-        // Generate 6 practice tests for this exam
-        const tests = generatePracticeTests(examData.id, displayId, examData.title, 6);
+        // Fetch all practice tests for this exam
+        const tests = await getPracticeTestsByExamId(examId);
         
-        // Get progress data from Firebase
-        const examProgress = await getExamProgress(examData.id);
-        console.log('Loaded progress data from Firebase:', examProgress);
+        // If user is authenticated, get their progress data
+        let progress = {};
+        if (user && user.uid) {
+          const userProgress = await getUserExamProgress(user.uid);
+          // Get just the progress for this exam
+          progress = userProgress[examId] || {};
+        }
         
         setExam(examData);
         setPracticeTests(tests);
-        setProgressData(examProgress);
+        setProgressData(progress);
+        setError(null);
       } catch (error) {
         console.error("Error fetching exam data:", error);
+        setError("Failed to load practice tests. Please try again later.");
       } finally {
         setLoading(false);
       }
     };
     
     fetchExamAndTests();
-  }, [examId]);
-
-  // Convert any examId to a simple display ID (1-6)
-  const getDisplayId = (rawId) => {
-    // If the rawId is already a number between 1-6, use it
-    const numId = parseInt(rawId);
-    if (!isNaN(numId) && numId >= 1 && numId <= 6) {
-      return numId;
-    }
-    
-    // Otherwise, hash the string to a number between 1-6
-    // This is a simple hash function that will always return the same number for the same string
-    let hash = 0;
-    for (let i = 0; i < rawId.length; i++) {
-      hash = (hash + rawId.charCodeAt(i)) % 6;
-    }
-    return hash + 1; // Make it 1-based instead of 0-based
-  };
-
-  // Helper function to generate mock practice tests
-  const generatePracticeTests = (actualExamId, displayId, examTitle, count) => {
-    const tests = [];
-    const difficultyLevels = ['Easy', 'Medium', 'Medium', 'Hard', 'Hard', 'Challenge'];
-    
-    for (let i = 1; i <= count; i++) {
-      tests.push({
-        id: `${actualExamId}-${i}`, // Actual ID for database operations
-        displayId: i, // Simple numeric ID for display
-        examId: actualExamId,
-        examTitle: examTitle, // Include the exam title for display
-        title: `Practice Test ${i}`,
-        displayName: `${examTitle} - Practice Test ${i}`, // Combined display name
-        description: `Comprehensive practice test designed to simulate the actual certification exam experience, with ${i === 6 ? 'challenging' : 'realistic'} questions.`,
-        questionCount: i === 6 ? 75 : 60,
-        timeLimit: i === 6 ? 90 : 60, // minutes
-        difficulty: difficultyLevels[i-1],
-        passingScore: 70,
-        createdAt: new Date(Date.now() - (count - i + 1) * 14 * 24 * 60 * 60 * 1000).toISOString(), // Staggered creation dates
-      });
-    }
-    
-    return tests;
-  };
-
-  // Helper functions to get exam data based on ID (similar to your ExamDetails component)
-  function getExamTitle(id) {
-    const titles = {
-      1: 'CompTIA A+ Certification',
-      2: 'AWS Certified Solutions Architect',
-      3: 'Certified Scrum Master (CSM)',
-      4: 'Cisco CCNA Certification',
-      5: 'PMP Certification',
-      6: 'Microsoft Azure Fundamentals (AZ-900)'
-    };
-    return titles[id] || `Certification Exam ${id}`;
-  }
-  
-  function getExamCategory(id) {
-    const categories = {
-      1: 'IT',
-      2: 'Cloud',
-      3: 'Project Management',
-      4: 'Networking',
-      5: 'Project Management',
-      6: 'Cloud'
-    };
-    return categories[id] || 'General';
-  }
+  }, [examId, user]);
 
   // Calculate exam progress percentage
   const calculateProgress = () => {
@@ -145,22 +83,27 @@ const PracticeTestsList = ({ user }) => {
 
   // Handle reset progress button click
   const handleResetProgress = async () => {
+    if (!user || !user.uid) {
+      setError("You must be logged in to reset progress.");
+      return;
+    }
+    
     setIsResetting(true);
     try {
       // Reset all progress in Firebase
-      await resetAllProgress();
+      await resetAllUserProgress(user.uid);
       
       // Update local state to reflect the reset
       setProgressData({}); // Set to empty object immediately without waiting for refetch
       
       // Optionally, you can refetch from Firebase to ensure sync
-      const examProgress = await getExamProgress(exam.id);
-      setProgressData(examProgress);
+      const userProgress = await getUserExamProgress(user.uid);
+      setProgressData(userProgress[examId] || {});
       
-      // Show a success notification (if you have a notification system)
       console.log('Progress data successfully reset');
     } catch (error) {
       console.error("Error resetting progress:", error);
+      setError("Failed to reset progress. Please try again later.");
     } finally {
       setIsResetting(false);
     }
@@ -195,9 +138,16 @@ const PracticeTestsList = ({ user }) => {
 
   // Calculate remaining days of access
   const getRemainingDays = () => {
-    if (!exam) return 0;
+    if (!exam || !exam.purchaseDetails?.validityDays) return 365; // Default to 365 if not set
     
-    const expiryDate = new Date(exam.expiryDate);
+    // If we don't have a purchase date in the exam, use the createdAt field
+    const startDate = exam.purchaseDate ? new Date(exam.purchaseDate) : 
+                    (exam.createdAt ? new Date(exam.createdAt.toDate()) : new Date());
+    
+    const validityDays = exam.purchaseDetails.validityDays;
+    const expiryDate = new Date(startDate);
+    expiryDate.setDate(expiryDate.getDate() + validityDays);
+    
     const today = new Date();
     const diffTime = expiryDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -207,6 +157,20 @@ const PracticeTestsList = ({ user }) => {
 
   if (loading) {
     return <Loading size="large" text="Loading practice tests..." />;
+  }
+  
+  if (error) {
+    return (
+      <div className="practice-tests-container">
+        <div className="error-message">
+          <h2>Error</h2>
+          <p>{error}</p>
+          <button onClick={() => navigate('/exams')} className="btn btn-primary">
+            Back to Exams
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const filteredTests = getFilteredTests();
@@ -263,13 +227,19 @@ const PracticeTestsList = ({ user }) => {
               <span className="info-label">Passing Score</span>
               <span className="info-value">{exam.passingScore}%</span>
             </div>
-            <div className="info-item">
-              <span className="info-label">Purchase Date</span>
-              <span className="info-value">{new Date(exam.purchaseDate).toLocaleDateString()}</span>
-            </div>
+            {exam.purchaseDate && (
+              <div className="info-item">
+                <span className="info-label">Purchase Date</span>
+                <span className="info-value">
+                  {new Date(exam.purchaseDate).toLocaleDateString()}
+                </span>
+              </div>
+            )}
             <div className="info-item">
               <span className="info-label">Access Until</span>
-              <span className="info-value">{new Date(exam.expiryDate).toLocaleDateString()}</span>
+              <span className="info-value">
+                {new Date(new Date().getTime() + (remainingDays * 24 * 60 * 60 * 1000)).toLocaleDateString()}
+              </span>
             </div>
           </div>
         </div>
@@ -324,7 +294,7 @@ const PracticeTestsList = ({ user }) => {
               <div key={test.id} className="practice-test-card">
                 <div className="test-card-header">
                   <div className="test-info">
-                    <h3>{exam.title} - {test.title}</h3>
+                    <h3>{test.displayName || `${exam.title} - ${test.title}`}</h3>
                     <div className="test-meta">
                       <span className="test-meta-item">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -433,27 +403,29 @@ const PracticeTestsList = ({ user }) => {
         </div>
       )}
 
-      <div className="debug-controls" style={{ marginTop: '30px', padding: '15px', background: '#f8f8f8', borderRadius: '8px' }}>
-        <h3>Debug Controls</h3>
-        <button 
-          onClick={handleResetProgress}
-          disabled={isResetting}
-          style={{ 
-            padding: '8px 16px', 
-            background: '#e74c3c', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '4px',
-            cursor: 'pointer',
-            opacity: isResetting ? 0.7 : 1
-          }}
-        >
-          {isResetting ? 'Resetting...' : 'Reset All Progress Data'}
-        </button>
-        <p style={{ fontSize: '0.8rem', marginTop: '8px', color: '#666' }}>
-          This will clear all saved test progress in Firebase (for development purposes).
-        </p>
-      </div>
+      {user && (
+        <div className="debug-controls" style={{ marginTop: '30px', padding: '15px', background: '#f8f8f8', borderRadius: '8px' }}>
+          <h3>Debug Controls</h3>
+          <button 
+            onClick={handleResetProgress}
+            disabled={isResetting}
+            style={{ 
+              padding: '8px 16px', 
+              background: '#e74c3c', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '4px',
+              cursor: 'pointer',
+              opacity: isResetting ? 0.7 : 1
+            }}
+          >
+            {isResetting ? 'Resetting...' : 'Reset All Progress Data'}
+          </button>
+          <p style={{ fontSize: '0.8rem', marginTop: '8px', color: '#666' }}>
+            This will clear all saved test progress in Firebase (for development purposes).
+          </p>
+        </div>
+      )}
     </div>
   );
 };

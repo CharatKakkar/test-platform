@@ -3,7 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Loading from './Loading';
 import './EnhancedPracticeTest.css';
-import { updateTestProgress } from '../services/progressService';
+import { 
+  getExamById, 
+  getPracticeTestById,
+  getQuestionsByTestId,
+  updateUserTestProgress,
+  getPracticeTestsByExamId
+} from '../services/firebaseService';
 
 const EnhancedPracticeTest = ({ user }) => {
   const { testId } = useParams();
@@ -14,7 +20,9 @@ const EnhancedPracticeTest = ({ user }) => {
   const mode = location.state?.mode || 'exam';
   
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [test, setTest] = useState(null);
+  const [exam, setExam] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -29,84 +37,104 @@ const EnhancedPracticeTest = ({ user }) => {
     const fetchTestData = async () => {
       setLoading(true);
       try {
-        // Extract examId from testId (format is "examId-testNumber")
-        let examId = '1';
-        let testNumber = '1';
+        // Parse the testId format (should be practiceTestDocId from Firebase)
+        // To support both formats: 'examId-testNumber' (old format) and direct test IDs (new format)
+        let examId = '';
+        let practiceTestId = testId;
         
+        // If the testId contains a hyphen, it might be using the old format
         if (testId && testId.includes('-')) {
           const parts = testId.split('-');
-          examId = parts[0];
-          testNumber = parts[1] || '1';
+          const possibleExamId = parts[0];
+          
+          // Try to fetch the exam first to see if it exists
+          const examData = await getExamById(possibleExamId);
+          
+          if (examData) {
+            // Old format confirmed
+            examId = possibleExamId;
+            const testNumber = parts[1];
+            
+            // Now we need to query the practice tests to find the one with the corresponding displayId
+            const testsForExam = await getPracticeTestsByExamId(examId);
+            const targetTest = testsForExam.find(test => test.displayId.toString() === testNumber);
+            
+            if (targetTest) {
+              practiceTestId = targetTest.id;
+            } else {
+              throw new Error(`Practice test number ${testNumber} not found for exam ${examId}`);
+            }
+          } else {
+            // If no exam found with this ID, assume the whole testId is a direct practice test ID
+            // We'll figure out the parent exam ID next
+          }
         }
         
-        // Get a display-friendly exam name based on the examId
-        const examName = getExamName(examId);
+        // Now fetch the practice test with this ID
+        let practiceTest;
         
-        // Simulate API call - in a real app, you would fetch from your backend
-        setTimeout(() => {
-          // Mock test data based on ID
-          const testData = {
-            id: testId,
-            examId: examId,
-            testNumber: testNumber,
-            // Use a user-friendly title that doesn't show the raw IDs
-            title: `${examName} - Practice Test ${testNumber}`,
-            description: 'Comprehensive test to evaluate your knowledge and prepare for certification.',
-            timeLimit: 60, // minutes
-            questionsCount: 10,
-            passingScore: 70,
-          };
+        if (examId) {
+          // If we already determined the examId
+          practiceTest = await getPracticeTestById(examId, practiceTestId);
+        } else {
+          // We need to search across all exams to find this practice test
+          // In a real app, you'd have a direct lookup or a field reference
+          // For now, let's add a fallback search across common exam IDs
+          const commonExamIds = ['1', '2', '3', '4', '5', '6'];
           
-          // Generate mock questions
-          const mockQuestions = generateMockQuestions(parseInt(testNumber), 10);
-          
-          setTest(testData);
-          setQuestions(mockQuestions);
-          
-          // Set timer if in exam mode
-          if (mode === 'exam') {
-            setTimeRemaining(testData.timeLimit * 60); // convert to seconds
+          for (const id of commonExamIds) {
+            try {
+              const test = await getPracticeTestById(id, practiceTestId);
+              if (test) {
+                practiceTest = test;
+                examId = id;
+                break;
+              }
+            } catch (e) {
+              // Try next exam ID
+              console.log(`Test not found in exam ${id}, trying next...`);
+            }
           }
           
-          setLoading(false);
-        }, 1000);
+          if (!practiceTest) {
+            throw new Error(`Practice test with ID ${practiceTestId} not found`);
+          }
+        }
+        
+        // Now fetch the parent exam data
+        const examData = await getExamById(examId);
+        
+        if (!examData) {
+          throw new Error(`Exam with ID ${examId} not found`);
+        }
+        
+        // Fetch questions for this practice test
+        const questionsData = await getQuestionsByTestId(examId, practiceTestId);
+        
+        if (!questionsData || questionsData.length === 0) {
+          throw new Error('No questions found for this practice test');
+        }
+        
+        setExam(examData);
+        setTest(practiceTest);
+        setQuestions(questionsData);
+        
+        // Set timer if in exam mode
+        if (mode === 'exam') {
+          setTimeRemaining(practiceTest.timeLimit * 60); // convert to seconds
+        }
+        
+        setLoading(false);
+        
       } catch (error) {
         console.error("Error fetching test data:", error);
+        setError(`Failed to load practice test: ${error.message}`);
         setLoading(false);
       }
     };
 
     fetchTestData();
   }, [testId, mode]);
-
-  // Helper function to get a readable exam name
-  function getExamName(examId) {
-    // Check if the examId is already a simple number
-    const numId = parseInt(examId);
-    if (!isNaN(numId) && numId >= 1 && numId <= 6) {
-      return getExamNameById(numId);
-    }
-    
-    // For complex IDs, hash them to a number between 1-6
-    let hash = 0;
-    for (let i = 0; i < examId.length; i++) {
-      hash = (hash + examId.charCodeAt(i)) % 6;
-    }
-    return getExamNameById(hash + 1);
-  }
-  
-  // Get exam name from ID
-  function getExamNameById(id) {
-    const titles = {
-      1: 'CompTIA A+ Certification',
-      2: 'AWS Certified Solutions Architect',
-      3: 'Certified Scrum Master (CSM)',
-      4: 'Cisco CCNA Certification',
-      5: 'PMP Certification',
-      6: 'Microsoft Azure Fundamentals (AZ-900)'
-    };
-    return titles[id] || `Certification Exam ${id}`;
-  }
 
   // Timer effect for exam mode
   useEffect(() => {
@@ -125,32 +153,6 @@ const EnhancedPracticeTest = ({ user }) => {
     
     return () => clearInterval(timer);
   }, [loading, timeRemaining, mode, testCompleted]);
-
-  // Generate mock questions with detailed explanations
-  const generateMockQuestions = (seed, count) => {
-    const questions = [];
-    const categories = ['Network Security', 'Cloud Computing', 'Database Management', 'Software Development', 'IT Infrastructure'];
-    
-    for (let i = 1; i <= count; i++) {
-      const category = categories[(seed + i) % categories.length];
-      questions.push({
-        id: i,
-        text: `Question ${i}: In ${category}, what is the most effective approach to handle [specific scenario]?`,
-        options: [
-          { id: 'a', text: `Option A for question ${i}` },
-          { id: 'b', text: `Option B for question ${i}` },
-          { id: 'c', text: `Option C for question ${i}` },
-          { id: 'd', text: `Option D for question ${i}` }
-        ],
-        correctAnswer: String.fromCharCode(97 + (i % 4)), // a, b, c, or d
-        explanation: `Detailed explanation for question ${i}: The correct answer is ${String.fromCharCode(97 + (i % 4)).toUpperCase()} because it addresses the key requirements of the scenario. Options ${String.fromCharCode(97 + ((i+1) % 4)).toUpperCase()} and ${String.fromCharCode(97 + ((i+2) % 4)).toUpperCase()} are incorrect because they don't account for important factors like scalability and security. Option ${String.fromCharCode(97 + ((i+3) % 4)).toUpperCase()} might seem reasonable but has limitations in real-world applications.`,
-        category: category,
-        difficulty: i % 3 === 0 ? 'Hard' : (i % 2 === 0 ? 'Medium' : 'Easy')
-      });
-    }
-    
-    return questions;
-  };
 
   // Handle selecting an answer
   const handleAnswer = (questionId, optionId) => {
@@ -199,84 +201,63 @@ const EnhancedPracticeTest = ({ user }) => {
     }
   };
 
-// Update the handleSubmitTest function with better error handling
-const handleSubmitTest = async () => {
-  // Calculate score
-  let correct = 0;
-  let totalAnswered = 0;
-  
-  questions.forEach(question => {
-    if (answers[question.id]) {
-      totalAnswered++;
-      if (answers[question.id] === question.correctAnswer) {
-        correct++;
+  // Update the handleSubmitTest function with Firebase integration
+  const handleSubmitTest = async () => {
+    // Calculate score
+    let correct = 0;
+    let totalAnswered = 0;
+    
+    questions.forEach(question => {
+      if (answers[question.id]) {
+        totalAnswered++;
+        if (answers[question.id] === question.correctAnswer) {
+          correct++;
+        }
       }
+    });
+    
+    const percentage = Math.round((correct / questions.length) * 100);
+    const resultData = {
+      score: correct,
+      totalQuestions: questions.length,
+      answeredQuestions: totalAnswered,
+      percentage: percentage,
+      isPassed: percentage >= (test?.passingScore || 70),
+      timeSpent: test.timeLimit * 60 - (timeRemaining || 0),
+      mode: mode,
+      passingScore: test?.passingScore || 70,
+      // Add the user-friendly test name
+      testName: test.displayName || `${exam.title} - ${test.title}`
+    };
+    
+    // Set the local state regardless of whether Firebase save works
+    setScore(resultData);
+    setTestCompleted(true);
+    
+    // Save attempt to Firebase if user is logged in
+    if (user && user.uid) {
+      try {
+        const attemptId = await updateUserTestProgress(
+          user.uid, 
+          exam.id, 
+          test.id, 
+          resultData
+        );
+        
+        if (attemptId) {
+          console.log(`Test progress saved successfully with ID: ${attemptId}`);
+        } else {
+          console.log('Failed to save test progress, but test results are still displayed');
+        }
+      } catch (error) {
+        console.error('Error saving test progress:', error);
+        console.log('Continuing to show test results despite save error');
+      }
+    } else {
+      console.log('User not logged in, test progress not saved');
     }
-  });
-  
-  const percentage = Math.round((correct / questions.length) * 100);
-  const resultData = {
-    score: correct,
-    totalQuestions: questions.length,
-    answeredQuestions: totalAnswered,
-    percentage: percentage,
-    isPassed: percentage >= (test?.passingScore || 70),
-    timeSpent: test?.timeLimit * 60 - timeRemaining,
-    mode: mode,
-    passingScore: test?.passingScore || 70,
-    // Add the user-friendly test name
-    testName: test.title
   };
-  
-  // Set the local state regardless of whether Firebase save works
-  setScore(resultData);
-  setTestCompleted(true);
-  
-  // Save attempt to Firebase
-  try {
-    // Extract examId from testId (format is "examId-testNumber")
-    let examId;
-    
-    // Check if testId contains a hyphen
-    if (testId && testId.includes('-')) {
-      const parts = testId.split('-');
-      examId = parts[0];
-      console.log(`Using examId "${examId}" extracted from testId "${testId}"`);
-    } else {
-      // If testId doesn't match the expected format, use it as is or extract a number
-      examId = testId;
-      console.log(`Using entire testId "${testId}" as examId`);
-    }
-    
-    // Ensure examId is a valid string (not undefined or null)
-    if (!examId) {
-      console.error(`Invalid examId extracted from testId "${testId}"`);
-      // Fallback to a safe default to prevent NaN in the database
-      examId = "1";
-      console.log(`Using fallback examId "${examId}"`);
-    }
-    
-    console.log(`Saving progress with examId: "${examId}" and testId: "${testId}"`);
-    const attemptId = await updateTestProgress(examId, testId, resultData);
-    
-    if (attemptId) {
-      console.log(`Test progress saved successfully with ID: ${attemptId}`);
-    } else {
-      console.log('Failed to save test progress, but test results are still displayed');
-      
-      // You could show a message to the user here if needed
-      /* 
-      setErrorMessage('Your test results are shown but could not be saved to your account. ' +
-                     'You may need to sign in again.');
-      */
-    }
-  } catch (error) {
-    console.error('Error saving test progress:', error);
-    console.log('Continuing to show test results despite save error');
-    
-    // You could show a message to the user here if needed
-  }
-};
+
   // Retry the test
   const handleRetry = () => {
     setAnswers({});
@@ -309,6 +290,20 @@ const handleSubmitTest = async () => {
   if (loading) {
     return <Loading size="large" text="Loading practice test..." />;
   }
+  
+  if (error) {
+    return (
+      <div className="practice-test-container">
+        <div className="error-message">
+          <h2>Error</h2>
+          <p>{error}</p>
+          <button onClick={() => navigate('/tests')} className="btn btn-primary">
+            Back to Tests
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Render test completion screen
   if (testCompleted) {
@@ -317,7 +312,7 @@ const handleSubmitTest = async () => {
       return (
         <div className="practice-test-container">
           <div className="test-results-detailed">
-            <h1>Test Results: {test.title}</h1>
+            <h1>Test Results: {test.displayName || `${exam.title} - ${test.title}`}</h1>
             <div className="results-summary">
               <div className="score-display">
                 <div className="score-circle">
@@ -494,7 +489,7 @@ const handleSubmitTest = async () => {
               )}
               <div className="score-detail-item">
                 <div className="detail-label">Passing Score:</div>
-                <div className="detail-value">{test.passingScore}%</div>
+                <div className="detail-value">{test.passingScore || 70}%</div>
               </div>
             </div>
           </div>
@@ -532,7 +527,7 @@ const handleSubmitTest = async () => {
   return (
     <div className="practice-test-container">
       <div className="test-header">
-        <h1>{test.title}</h1>
+        <h1>{test.displayName || `${exam.title} - ${test.title}`}</h1>
         <div className="test-mode-indicator">
           {mode === 'exam' ? (
             <div className="mode-exam">
