@@ -26,8 +26,28 @@ const PracticeTestsList = ({ user }) => {
     const fetchExamAndTests = async () => {
       setLoading(true);
       try {
-        // Fetch exam data from Firebase
-        const examData = await getExamById(examId);
+        console.log(`Fetching exam with ID: ${examId}`);
+        
+        // Attempt to retrieve the exam data from session storage first (if set by Dashboard)
+        let examData = null;
+        try {
+          const storedExam = sessionStorage.getItem('currentExam');
+          if (storedExam) {
+            const parsedExam = JSON.parse(storedExam);
+            if (parsedExam && parsedExam.id === examId) {
+              console.log("Using exam data from session storage:", parsedExam);
+              examData = parsedExam;
+            }
+          }
+        } catch (storageError) {
+          console.error("Error reading from session storage:", storageError);
+        }
+        
+        // If not in session storage or invalid, fetch from Firebase
+        if (!examData) {
+          console.log("Fetching exam data from Firebase");
+          examData = await getExamById(examId);
+        }
         
         if (!examData) {
           setError(`Exam with ID ${examId} not found.`);
@@ -35,8 +55,12 @@ const PracticeTestsList = ({ user }) => {
           return;
         }
         
-        // Fetch all practice tests for this exam
+        console.log("Found exam:", examData);
+        
+        // Fetch practice tests directly using the document ID
+        console.log(`Fetching practice tests using exam ID: ${examId}`);
         const tests = await getPracticeTestsByExamId(examId);
+        console.log(`Found ${tests.length} practice tests`);
         
         // If user is authenticated, get their progress data
         let progress = {};
@@ -78,12 +102,13 @@ const PracticeTestsList = ({ user }) => {
 
   // Start practice test in specified mode
   const startTest = (testId, mode) => {
-    navigate(`/practice-test/${testId}`, { state: { mode } });
+    // Pass both the test ID and exam ID to the practice test component
+    navigate(`/practice-test/${testId}`, { state: { mode, examId } });
   };
 
   // Handle reset progress button click
   const handleResetProgress = async () => {
-    if (!user || !user.uid) {
+    if (!user) {
       setError("You must be logged in to reset progress.");
       return;
     }
@@ -137,23 +162,48 @@ const PracticeTestsList = ({ user }) => {
   };
 
   // Calculate remaining days of access
-  const getRemainingDays = () => {
-    if (!exam || !exam.purchaseDetails?.validityDays) return 365; // Default to 365 if not set
+// Calculate remaining days of access
+const getRemainingDays = () => {
+  if (!exam || !exam.purchaseDetails?.validityDays) return 365; // Default to 365 if not set
+  
+  // Helper function to parse custom date format
+  const parseCustomDate = (dateString) => {
+    if (!dateString) return new Date();
     
-    // If we don't have a purchase date in the exam, use the createdAt field
-    const startDate = exam.purchaseDate ? new Date(exam.purchaseDate) : 
-                    (exam.createdAt ? new Date(exam.createdAt.toDate()) : new Date());
-    
-    const validityDays = exam.purchaseDetails.validityDays;
-    const expiryDate = new Date(startDate);
-    expiryDate.setDate(expiryDate.getDate() + validityDays);
-    
-    const today = new Date();
-    const diffTime = expiryDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return diffDays > 0 ? diffDays : 0;
+    try {
+      // Split and parse the custom format
+      const [date, time, timezone] = dateString.split(' at ');
+      
+      // Construct a standardized date string
+      const standardDateString = `${date} ${time} ${timezone}`;
+      return new Date(standardDateString);
+    } catch (error) {
+      console.error('Error parsing date:', dateString, error);
+      return new Date();
+    }
   };
+  
+  // Determine the start date with multiple fallback options
+  let startDate;
+  if (exam.purchaseDate) {
+    startDate = parseCustomDate(exam.purchaseDate);
+  } else if (exam.createdAt) {
+    startDate = parseCustomDate(exam.createdAt);
+  } else {
+    // Absolute fallback
+    startDate = new Date();
+  }
+  
+  const validityDays = exam.purchaseDetails.validityDays || 365;
+  const expiryDate = new Date(startDate);
+  expiryDate.setDate(expiryDate.getDate() + validityDays);
+  
+  const today = new Date();
+  const diffTime = expiryDate - today;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays > 0 ? diffDays : 0;
+};
 
   if (loading) {
     return <Loading size="large" text="Loading practice tests..." />;
@@ -310,7 +360,7 @@ const PracticeTestsList = ({ user }) => {
                         </svg>
                         {test.questionCount} questions
                       </span>
-                      <span className={`difficulty-badge ${test.difficulty.toLowerCase()}`}>
+                      <span className={`difficulty-badge ${test.difficulty?.toLowerCase()}`}>
                         {test.difficulty}
                       </span>
                     </div>
@@ -424,6 +474,11 @@ const PracticeTestsList = ({ user }) => {
           <p style={{ fontSize: '0.8rem', marginTop: '8px', color: '#666' }}>
             This will clear all saved test progress in Firebase (for development purposes).
           </p>
+          <div style={{ marginTop: '10px' }}>
+            <p style={{ fontSize: '0.8rem', color: '#666' }}>
+              <strong>Exam ID:</strong> {examId}
+            </p>
+          </div>
         </div>
       )}
     </div>

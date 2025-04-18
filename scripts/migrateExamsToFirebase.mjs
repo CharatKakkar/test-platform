@@ -18,7 +18,7 @@ const migrateExamsData = async () => {
     // Array of exam data from your existing mock data
     const examsData = [
       {
-        id: '1',
+        id: 'mov5vp2L4yRny2oVAvXK',
         title: 'CompTIA A+ Certification',
         category: 'IT',
         description: 'Validate your understanding of hardware, software, and operational procedures.',
@@ -40,7 +40,7 @@ const migrateExamsData = async () => {
         thumbnail: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="160" height="100" viewBox="0 0 160 100"%3E%3Crect width="160" height="100" fill="%23275d8b"/%3E%3Ctext x="80" y="50" font-family="Arial" font-size="18" text-anchor="middle" fill="white"%3EA+%3C/text%3E%3C/svg%3E'
       },
       {
-        id: '2',
+        id: 'yYqhU0cGKpNfK8bxQEdY',
         title: 'AWS Certified Solutions Architect',
         category: 'Cloud',
         description: 'Master designing distributed systems on the AWS platform.',
@@ -62,7 +62,7 @@ const migrateExamsData = async () => {
         thumbnail: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="160" height="100" viewBox="0 0 160 100"%3E%3Crect width="160" height="100" fill="%23f90"/%3E%3Ctext x="80" y="50" font-family="Arial" font-size="18" text-anchor="middle" fill="white"%3EAWS%3C/text%3E%3C/svg%3E'
       },
       {
-        id: '3',
+        id: 'UmG6yvkD0RJ3VFfc95b5',
         title: 'Certified Scrum Master (CSM)',
         category: 'Project Management',
         description: 'Learn Scrum methodologies and how to facilitate Scrum processes.',
@@ -84,7 +84,7 @@ const migrateExamsData = async () => {
         thumbnail: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="160" height="100" viewBox="0 0 160 100"%3E%3Crect width="160" height="100" fill="%234b9b4b"/%3E%3Ctext x="80" y="50" font-family="Arial" font-size="18" text-anchor="middle" fill="white"%3ECSM%3C/text%3E%3C/svg%3E'
       },
       {
-        id: '4',
+        id: '2TRW5fp36eYK6C0pC0Vm',
         title: 'Cisco CCNA Certification',
         category: 'Networking',
         description: 'Validate your skills in network fundamentals, access, IP connectivity, and services.',
@@ -106,7 +106,7 @@ const migrateExamsData = async () => {
         thumbnail: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="160" height="100" viewBox="0 0 160 100"%3E%3Crect width="160" height="100" fill="%23005073"/%3E%3Ctext x="80" y="50" font-family="Arial" font-size="18" text-anchor="middle" fill="white"%3ECCNA%3C/text%3E%3C/svg%3E'
       },
       {
-        id: '5',
+        id: 'UmG6yvkD0RJ3VFfc95b5',
         title: 'PMP Certification',
         category: 'Project Management',
         description: 'Demonstrate your expertise in project management processes and techniques.',
@@ -128,7 +128,7 @@ const migrateExamsData = async () => {
         thumbnail: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="160" height="100" viewBox="0 0 160 100"%3E%3Crect width="160" height="100" fill="%23bd582c"/%3E%3Ctext x="80" y="50" font-family="Arial" font-size="18" text-anchor="middle" fill="white"%3EPMP%3C/text%3E%3C/svg%3E'
       },
       {
-        id: '6',
+        id: '7vNYHPzUNwgTeZyxMACt',
         title: 'Microsoft Azure Fundamentals (AZ-900)',
         category: 'Cloud',
         description: 'Learn cloud concepts, Azure services, security, privacy, and compliance.',

@@ -46,7 +46,7 @@ import {
       
       // Return user data
       return {
-        id: user.uid,
+        id: user.id,
         name: user.displayName,
         email: user.email
       };

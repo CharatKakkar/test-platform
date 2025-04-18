@@ -274,62 +274,6 @@ export const generateReceipt = async (purchaseDate) => {
   }
 };
 
-// Migration function to move from old structure to new structure
-export const migrateFromOldStructure = async () => {
-  try {
-    const user = auth.currentUser;
-    if (!user) {
-      console.error("No authenticated user found");
-      return false;
-    }
-    
-    // Reference to the old document
-    const oldDocRef = doc(db, "purchasedExams", user.uid);
-    const oldDocSnap = await getDoc(oldDocRef);
-    
-    if (!oldDocSnap.exists()) {
-      console.log("No old data to migrate");
-      return true;
-    }
-    
-    const oldData = oldDocSnap.data();
-    
-    if (!oldData.exams || !Array.isArray(oldData.exams) || oldData.exams.length === 0) {
-      console.log("No exams to migrate");
-      return true;
-    }
-    
-    // Reference to the user's purchases subcollection
-    const purchasesRef = collection(db, "purchasedExams", user.uid, "items");
-    
-    // Migrate each exam to the new structure
-    for (const exam of oldData.exams) {
-      const examToStore = {
-        examId: exam.id,
-        title: exam.title,
-        category: exam.category,
-        price: exam.price || 9.99,
-        purchaseDate: exam.purchaseDate,
-        expiryDate: exam.expiryDate,
-        createdAt: serverTimestamp(),
-        userId: user.uid,
-        migratedFromOldStructure: true
-      };
-      
-      await addDoc(purchasesRef, examToStore);
-    }
-    
-    console.log(`Successfully migrated ${oldData.exams.length} exams to new structure`);
-    
-    // Optionally, rename the old document to keep it as backup
-    // await updateDoc(oldDocRef, { migrated: true, migratedAt: serverTimestamp() });
-    
-    return true;
-  } catch (error) {
-    console.error("Error migrating from old structure:", error);
-    return false;
-  }
-};
 
 const purchasedExamsService = {
   getPurchasedExams,
@@ -341,8 +285,7 @@ const purchasedExamsService = {
   getPurchaseHistory,
   generateReceipt,
   getPurchasesByExamId,
-  updatePurchase,
-  migrateFromOldStructure
+  updatePurchase
 };
 
 export default purchasedExamsService;

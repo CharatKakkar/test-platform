@@ -1,11 +1,12 @@
 // components/Dashboard.js
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   getUserExamProgress, 
   getAllExams,
   getUserPurchasedExams,
-  purchaseExam
+  getUserTestAttempts,
+  getExamById 
 } from '../services/firebaseService';
 import Loading from './Loading';
 import './Dashboard.css';
@@ -20,225 +21,85 @@ function Dashboard({ user }) {
     purchasedExams: 0
   });
   const [debugLog, setDebugLog] = useState([]);
+  const [allExamsData, setAllExamsData] = useState([]);
+  const navigate = useNavigate();
 
   // Helper function to add debug log entries
   const addDebugLog = (message) => {
     console.log(message);
     setDebugLog(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
   };
-
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoading(true);
-      try {
-        addDebugLog("Starting to fetch dashboard data");
-        
-        if (!user) {
-          addDebugLog("No user logged in");
-          setLoading(false);
-          return;
-        }
-        
-        addDebugLog(`Fetching data for user: ${user.id}`);
-
-        // Get all exams first
-        const allExams = await getAllExams();
-        addDebugLog(`Found ${allExams.length} exams in database`);
-        
-        if (allExams.length === 0) {
-          addDebugLog("WARNING: No exams found in database. Check your data migration.");
-        }
-        
-        // Create a map for quick lookup
-        const examsMap = {};
-        allExams.forEach(exam => {
-          examsMap[exam.id] = exam;
-        });
-
-        // Get user's progress data from Firebase
-        addDebugLog("Fetching user progress data");
-        const progressData = await getUserExamProgress(user.id);
-        addDebugLog(`Progress data keys: ${Object.keys(progressData).join(', ')}`);
-        
-        // Get purchased exams data
-        addDebugLog("Fetching user purchased exams");
-        const purchasedExamsData = await getUserPurchasedExams(user.id);
-        addDebugLog(`Found ${purchasedExamsData.length} purchased exams`);
-
-        console.log("Detailed purchased exam data:", purchasedExamsData);
-
-// IMPORTANT: Add these logs to see what's happening
-console.log("All exams:", allExams);
-        
-
-// Simplified approach - directly use the purchased exams data
-const userPurchasedExams = purchasedExamsData.map(purchase => {
-  // Find the matching exam from allExams
-  const matchingExam = allExams.find(exam => exam.id === purchase.examId) || {};
   
-  // Merge the purchase data with the exam data
-  return {
-    ...matchingExam,
-    id: purchase.examId || purchase.id, // Use exam ID if available
-    purchaseDate: purchase.purchaseDate || new Date().toISOString(),
-    expiryDate: purchase.expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-    lastAccessDate: purchase.lastAccessDate
-  };
-});
+  // Handle direct navigation to exam details
 
-console.log("User purchased exams after processing:", userPurchasedExams);
-        
-        // Extract all attempts into a flat array
-        const allAttempts = [];
-        
-        // Debug the progressData structure
-        if (Object.keys(progressData).length === 0) {
-          addDebugLog("WARNING: No progress data found for this user");
-        } else {
-          addDebugLog(`Progress data structure: ${JSON.stringify(Object.keys(progressData))}`);
-        }
-        
-        // Loop through the user's progress data
-        Object.keys(progressData).forEach(examId => {
-          // Each exam has multiple tests
-          const examTests = progressData[examId] || {};
-          addDebugLog(`Exam ${examId} has ${Object.keys(examTests).length} tests with progress`);
-          
-          Object.keys(examTests).forEach(testId => {
-            const testProgress = examTests[testId];
-            
-            if (testProgress && testProgress.history && testProgress.history.length) {
-              addDebugLog(`Test ${testId} has ${testProgress.history.length} attempts`);
-              
-              // Add each attempt to our array
-              testProgress.history.forEach((attempt, index) => {
-                allAttempts.push({
-                  id: `${testProgress.id || examId + '-' + testId}-${index}`, // Create a unique ID
-                  examId: examId,
-                  testId: testId,
-                  score: attempt.score,
-                  isPassed: attempt.isPassed,
-                  mode: attempt.mode || 'exam',
-                  createdAt: attempt.timestamp,
-                  correctAnswers: attempt.correctAnswers,
-                  totalQuestions: attempt.totalQuestions,
-                  testName: testProgress.testName || null
-                });
-              });
-            } else {
-              addDebugLog(`No history for test ${testId} or invalid structure`);
-              if (testProgress) {
-                addDebugLog(`Test progress keys: ${Object.keys(testProgress).join(', ')}`);
-              }
-            }
-          });
-        });
-        
-        addDebugLog(`Found ${allAttempts.length} total test attempts`);
-        
-        // Enrich purchased exams with purchase details
-        const enrichedPurchasedExams = userPurchasedExams.map(exam => {
-          const purchaseDetails = purchasedExamsData.find(p => p.examId === exam.id);
-          return {
-            ...exam,
-            purchaseDate: purchaseDetails?.purchaseDate || new Date().toISOString(),
-            expiryDate: purchaseDetails?.expiryDate || 
-              new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-            lastAccessDate: purchaseDetails?.lastAccessDate
-          };
-        });
-        
-        // Calculate stats
-        const testsCompleted = allAttempts.length;
-        const averageScore = testsCompleted > 0 
-          ? Math.round(allAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / testsCompleted) 
-          : 0;
-        
-        // Set stats
-        setStats({
-          testsCompleted,
-          averageScore,
-          purchasedExams: enrichedPurchasedExams.length
-        });
-        
-        // Sort attempts by date (newest first)
-        const sortedAttempts = [...allAttempts].sort((a, b) => {
-          // Handle Firestore Timestamp
-          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-          const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-          return dateB - dateA; // Sort descending (newest first)
-        });
-        
-        // Get the 3 most recent tests
-        setRecentTests(sortedAttempts.slice(0, 3));
-        
-        // Format the purchased exams
-        const formattedExams = enrichedPurchasedExams.map(exam => ({
-          ...exam,
-          practiceTestsCount: 6, // Each exam has 6 practice tests
-          description: `Complete certification exam with 6 practice tests`,
-          lastActivity: exam.lastAccessDate || exam.purchaseDate
-        }));
-        
-        setPurchasedExams(formattedExams);
-        addDebugLog("Dashboard data loaded successfully");
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-        addDebugLog(`ERROR: ${error.message}`);
-      } finally {
-        setLoading(false);
-      }
+// Update the handleExamDetailsNavigation function in your Dashboard component
+
+const handleExamDetailsNavigation = (examId) => {
+  // Log detailed information for debugging
+  console.log("🔍 NAVIGATING TO EXAM:", examId);
+  console.log("📋 Exam type:", typeof examId);
+  console.log("📊 Exam ID length:", examId?.length);
+  
+  // Check if this is a simple numeric ID
+  if (examId && examId.length === 1 && "123456789".includes(examId)) {
+    console.warn("⚠️ WARNING: Using numeric ID instead of Firebase document ID");
+    
+    // You can add a temporary mapping here for transition
+    const documentIdMapping = {
+      '1': 'UmG6yvkD0RJ3VFfc95b5', 
+      '2': '2TRW5fp36eYK6C0pC0Vm',
+      '3': 'yYqhU0cGKpNfK8bxQEdY', // Replace with the actual document ID for exam 3
+      '4': 'cisco-ccna',
+      '5': 'pmp',
+      '6': 'azure-fundamentals'
     };
     
-    fetchDashboardData();
-  }, [user]);
-  
-  // Manual purchase function for testing
-  const handlePurchaseExam = async (examId) => {
-    try {
-      if (!user) {
-        alert("You must be logged in to purchase exams");
-        return;
-      }
-      
-      addDebugLog(`Attempting to purchase exam ${examId}...`);
-      await purchaseExam(user.id, examId);
-      addDebugLog(`Successfully purchased exam ${examId}!`);
-      
-      // Reload dashboard data
-      setLoading(true);
-      window.location.reload(); // Simple refresh to reload all data
-    } catch (error) {
-      console.error("Error purchasing exam:", error);
-      addDebugLog(`ERROR purchasing exam: ${error.message}`);
-      alert(`Failed to purchase exam: ${error.message}`);
+    if (documentIdMapping[examId]) {
+      console.log(`Translating numeric ID ${examId} to document ID ${documentIdMapping[examId]}`);
+      examId = documentIdMapping[examId]; // Use document ID instead
     }
-  };
+  }
   
-  // Get exam name from ID
-  const getExamName = (examId) => {
-    const examNames = {
-      '1': 'CompTIA A+',
-      '2': 'AWS Solutions Architect',
-      '3': 'Certified Scrum Master',
-      '4': 'Cisco CCNA',
-      '5': 'PMP',
-      '6': 'Azure Fundamentals'
+  try {
+    // Find the exam in allExamsData to get complete details
+    const examDetails = allExamsData.find(exam => exam.id === examId);
+    console.log("Found exam details:", examDetails);
+    
+    if (!examDetails) {
+      console.warn("Exam details not found in loaded data, creating placeholder");
+    }
+    
+    // Create a safe object to store
+    const safeExamDetails = {
+      id: examId,
+      title: examDetails?.title || "Certification Exam",
+      ...(examDetails || {})
     };
     
-    return examNames[examId] || `Exam ${examId}`;
-  };
-  
+    // Store exam data in session storage for access on the details page
+    sessionStorage.setItem('currentExam', JSON.stringify(safeExamDetails));
+    console.log("Stored exam data in session storage:", safeExamDetails);
+    
+    // Navigate programmatically using the actual Firebase document ID
+    navigate(`/exam/${examId}/practice-tests`);
+  } catch (error) {
+    console.error("Error navigating to exam details:", error);
+    // Fallback navigation without extra data
+    navigate(`/exam/${examId}/practice-tests`);
+  }
+};
+
   // Generate a test name if not stored
   const getTestName = (attempt) => {
-    // Use the stored testName if available, otherwise generate one
+    // Use the stored testName if available
     if (attempt.testName) {
       return attempt.testName;
     }
     
-    const examName = getExamName(attempt.examId);
-    const testNumber = attempt.testId.split('-')[1] || '1';
-    return `${examName} - Practice Test ${testNumber}`;
+    // Try to find the exam in our loaded exams data
+    const exam = allExamsData.find(e => e.id === attempt.examId);
+    const examName = exam?.title || "Certification Exam";
+    return `${examName} - Practice Test`;
   };
   
   // Format date string
@@ -255,6 +116,147 @@ console.log("User purchased exams after processing:", userPurchasedExams);
     }
   };
 
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      try {
+        addDebugLog("Starting to fetch dashboard data");
+        
+        if (!user) {
+          addDebugLog("No user logged in");
+          setLoading(false);
+          return;
+        }
+        
+        const userId = user.uid || user.id;
+        addDebugLog(`Fetching data for user: ${userId}`);
+
+        // Get all exams first
+        const allExams = await getAllExams();
+        setAllExamsData(allExams); // Store for local use
+        addDebugLog(`Found ${allExams.length} exams in database`);
+        
+        if (allExams.length === 0) {
+          addDebugLog("WARNING: No exams found in database. Check your data migration.");
+        }
+        
+        // Get purchased exams data
+        addDebugLog("Fetching user purchased exams");
+        const purchasedExamsData = await getUserPurchasedExams(userId);
+        addDebugLog(`Found ${purchasedExamsData.length} purchased exams`);
+
+        console.log("Detailed purchased exam data:", purchasedExamsData);
+        
+        // Process purchased exams
+        const userPurchasedExams = [];
+        
+        for (const purchase of purchasedExamsData) {
+          const examId = purchase.examId;
+          
+          if (!examId) {
+            addDebugLog(`WARNING: Purchase record missing examId: ${purchase.id}`);
+            continue;
+          }
+          
+          // Find the exam details
+          //exam.id is exam's document ID and examID is Id in the exam not document ID
+          let examDetails = allExams.find(exam => exam.id === examId);
+          
+          // If not found in loaded exams, try to fetch it directly
+          if (!examDetails) {
+            addDebugLog(`Exam ${examId} not found in loaded exams, fetching directly`);
+            try {
+              examDetails = await getExamById(examId);
+            } catch (error) {
+              console.error(`Error fetching exam ${examId}:`, error);
+            }
+          }
+        
+          
+          // Combine purchase and exam data
+          userPurchasedExams.push({
+            ...examDetails,
+            id: examId,
+            purchaseDate: purchase.purchaseDate || new Date().toISOString(),
+            expiryDate: purchase.expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+            lastAccessDate: purchase.lastAccessDate
+          });
+        }
+        
+        console.log("User purchased exams after processing:", userPurchasedExams);
+        
+        // Fetch test attempts from the database
+        addDebugLog("Fetching user test attempts from database");
+        const userTestAttempts = await getUserTestAttempts(userId);
+        addDebugLog(`Found ${userTestAttempts.length} test attempts`);
+        console.log("User test attempts:", userTestAttempts);
+        
+        // Process all test attempts
+        const allAttempts = userTestAttempts.map(attempt => {
+          const examId = attempt.examId || '';
+          return {
+            id: attempt.id,
+            examId: examId,
+            testId: attempt.testId || '',
+            score: attempt.percentage || attempt.score || 0,
+            isPassed: attempt.isPassed || (attempt.percentage >= 70),
+            mode: attempt.mode || 'exam',
+            createdAt: attempt.timestamp || attempt.createdAt,
+            correctAnswers: attempt.score || attempt.correctAnswers || 0,
+            totalQuestions: attempt.totalQuestions || 1,
+            testName: attempt.testName
+          };
+        });
+        
+        addDebugLog(`Processed ${allAttempts.length} total test attempts`);
+        
+        // Calculate stats
+        const testsCompleted = allAttempts.length;
+        const averageScore = testsCompleted > 0 
+          ? Math.round(allAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / testsCompleted) 
+          : 0;
+        
+        // Set stats
+        setStats({
+          testsCompleted,
+          averageScore,
+          purchasedExams: userPurchasedExams.length
+        });
+        
+        // Sort attempts by date (newest first)
+        const sortedAttempts = [...allAttempts].sort((a, b) => {
+          // Handle Firestore Timestamp
+          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+          const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
+          return dateB - dateA; // Sort descending (newest first)
+        });
+        
+        // Get the 3 most recent tests
+        setRecentTests(sortedAttempts.slice(0, 3));
+        
+        // Format the purchased exams
+        const formattedExams = userPurchasedExams.map(exam => ({
+          ...exam,
+          title: exam.title,
+          practiceTestsCount: 6, // Each exam has 6 practice tests
+          description: exam.description || `Complete certification exam with practice tests`,
+          lastActivity: exam.lastAccessDate || exam.purchaseDate
+        }));
+        
+        setPurchasedExams(formattedExams);
+        
+        addDebugLog("Dashboard data loaded successfully");
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+        addDebugLog(`ERROR: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchDashboardData();
+  }, [user, navigate]);
+  
   if (loading) {
     return <Loading size="medium" text="Loading dashboard..." />;
   }
@@ -291,21 +293,21 @@ console.log("User purchased exams after processing:", userPurchasedExams);
                 <div className="exam-badge">Certification Exam</div>
                 <h3>{exam.title}</h3>
                 <div className="exam-info">
-                  <p><span className="info-label">Practice Tests:</span> 6</p>
+                  <p><span className="info-label">Practice Tests:</span> {exam.practiceTestsCount || 6}</p>
                   <p><span className="info-label">Valid Until:</span> {new Date(exam.expiryDate).toLocaleDateString()}</p>
+                  <p><span className="info-label">Exam ID:</span> {exam.id}</p>
                 </div>
                 <div className="exam-card-actions">
-                <Link 
-  to={`/exam/${exam.id}/practice-tests`}
+                <button 
   className="btn-primary btn-full"
-  onClick={(e) => {
-    console.log("Navigating to exam:", exam);
-    // If you need to, you can store exam data in sessionStorage
-    sessionStorage.setItem('currentExam', JSON.stringify(exam));
+  onClick={() => {
+    console.log("🔘 Button clicked for exam:", exam);
+    console.log("🆔 Exam ID being passed:", exam.id);
+    handleExamDetailsNavigation(exam.id);
   }}
 >
   View Practice Tests
-</Link>
+</button>
                 </div>
               </div>
             ))}
@@ -354,18 +356,18 @@ console.log("User purchased exams after processing:", userPurchasedExams);
                   <p>Correct: {test.correctAnswers} / {test.totalQuestions}</p>
                 </div>
                 <div className="test-card-actions">
-                <Link 
-  to={`/exam/${test.examId}/practice-tests`}
-  className="btn-secondary"
-  onClick={() => {
-    console.log("Navigating to exam details with examId:", test.examId);
-  }}
->
-  Exam Details
-</Link>
+                  <button 
+                    className="btn-secondary"
+                    onClick={() => handleExamDetailsNavigation(test.examId)}
+                  >
+                    Exam Details
+                  </button>
                   <Link 
                     to={`/practice-test/${test.testId}`} 
-                    state={{ mode: test.mode }}
+                    state={{ 
+                      mode: test.mode,
+                      examId: test.examId
+                    }}
                     className="btn-primary"
                   >
                     Retry Test
@@ -388,32 +390,7 @@ console.log("User purchased exams after processing:", userPurchasedExams);
           </div>
         )}
       </section>
-      
-      {/* Debug section - for development only */}
-      <section style={{ marginTop: '30px', padding: '15px', background: '#f5f5f5', borderRadius: '8px' }}>
-        <h2>Development Tools</h2>
-        <div>
-          <h3>Purchase Exam (Test):</h3>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
-            <button onClick={() => handlePurchaseExam('1')} style={{ padding: '10px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px' }}>
-              Purchase CompTIA A+
-            </button>
-            <button onClick={() => handlePurchaseExam('2')} style={{ padding: '10px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '4px' }}>
-              Purchase AWS Solutions Architect
-            </button>
-            <button onClick={() => handlePurchaseExam('3')} style={{ padding: '10px', background: '#FF9800', color: 'white', border: 'none', borderRadius: '4px' }}>
-              Purchase Scrum Master
-            </button>
-          </div>
-        </div>
-        
-        <div>
-          <h3>Debug Log:</h3>
-          <pre style={{ height: '200px', overflow: 'auto', background: '#f0f0f0', padding: '10px', borderRadius: '4px', fontSize: '12px' }}>
-            {debugLog.length > 0 ? debugLog.map((log, i) => <div key={i}>{log}</div>) : "No logs yet"}
-          </pre>
-        </div>
-      </section>
+  
       
       <div className="quick-actions">
         <Link to="/exams" className="btn-primary">Browse Exams</Link>

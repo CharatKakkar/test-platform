@@ -7,8 +7,7 @@ import {
   getExamById, 
   getPracticeTestById,
   getQuestionsByTestId,
-  updateUserTestProgress,
-  getPracticeTestsByExamId
+  updateUserTestProgress
 } from '../services/firebaseService';
 
 const EnhancedPracticeTest = ({ user }) => {
@@ -18,6 +17,8 @@ const EnhancedPracticeTest = ({ user }) => {
   
   // Extract the mode from the location state or default to 'exam'
   const mode = location.state?.mode || 'exam';
+  // Extract examId from location state 
+  const examId = location.state?.examId;
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,83 +38,38 @@ const EnhancedPracticeTest = ({ user }) => {
     const fetchTestData = async () => {
       setLoading(true);
       try {
-        // Parse the testId format (should be practiceTestDocId from Firebase)
-        // To support both formats: 'examId-testNumber' (old format) and direct test IDs (new format)
-        let examId = '';
-        let practiceTestId = testId;
+        console.log(`Starting to fetch test data for testId: ${testId}`);
         
-        // If the testId contains a hyphen, it might be using the old format
-        if (testId && testId.includes('-')) {
-          const parts = testId.split('-');
-          const possibleExamId = parts[0];
-          
-          // Try to fetch the exam first to see if it exists
-          const examData = await getExamById(possibleExamId);
-          
-          if (examData) {
-            // Old format confirmed
-            examId = possibleExamId;
-            const testNumber = parts[1];
-            
-            // Now we need to query the practice tests to find the one with the corresponding displayId
-            const testsForExam = await getPracticeTestsByExamId(examId);
-            const targetTest = testsForExam.find(test => test.displayId.toString() === testNumber);
-            
-            if (targetTest) {
-              practiceTestId = targetTest.id;
-            } else {
-              throw new Error(`Practice test number ${testNumber} not found for exam ${examId}`);
-            }
-          } else {
-            // If no exam found with this ID, assume the whole testId is a direct practice test ID
-            // We'll figure out the parent exam ID next
-          }
+        // We need the examId to fetch the practice test
+        if (!examId) {
+          throw new Error("No exam ID provided. Please navigate from the practice tests page.");
         }
         
-        // Now fetch the practice test with this ID
-        let practiceTest;
+        console.log(`Using examId: ${examId}`);
         
-        if (examId) {
-          // If we already determined the examId
-          practiceTest = await getPracticeTestById(examId, practiceTestId);
-        } else {
-          // We need to search across all exams to find this practice test
-          // In a real app, you'd have a direct lookup or a field reference
-          // For now, let's add a fallback search across common exam IDs
-          const commonExamIds = ['1', '2', '3', '4', '5', '6'];
-          
-          for (const id of commonExamIds) {
-            try {
-              const test = await getPracticeTestById(id, practiceTestId);
-              if (test) {
-                practiceTest = test;
-                examId = id;
-                break;
-              }
-            } catch (e) {
-              // Try next exam ID
-              console.log(`Test not found in exam ${id}, trying next...`);
-            }
-          }
-          
-          if (!practiceTest) {
-            throw new Error(`Practice test with ID ${practiceTestId} not found`);
-          }
-        }
-        
-        // Now fetch the parent exam data
+        // Fetch exam data
         const examData = await getExamById(examId);
-        
         if (!examData) {
           throw new Error(`Exam with ID ${examId} not found`);
         }
         
-        // Fetch questions for this practice test
-        const questionsData = await getQuestionsByTestId(examId, practiceTestId);
+        console.log(`Found exam: ${examData.title}`);
         
+        // Fetch practice test using direct document IDs
+        const practiceTest = await getPracticeTestById(examId, testId);
+        if (!practiceTest) {
+          throw new Error(`Practice test with ID ${testId} not found`);
+        }
+        
+        console.log(`Found practice test: ${practiceTest.title || practiceTest.displayName}`);
+        
+        // Fetch questions using direct document IDs
+        const questionsData = await getQuestionsByTestId(examId, testId);
         if (!questionsData || questionsData.length === 0) {
           throw new Error('No questions found for this practice test');
         }
+        
+        console.log(`Found ${questionsData.length} questions`);
         
         setExam(examData);
         setTest(practiceTest);
@@ -134,7 +90,7 @@ const EnhancedPracticeTest = ({ user }) => {
     };
 
     fetchTestData();
-  }, [testId, mode]);
+  }, [testId, mode, examId]);
 
   // Timer effect for exam mode
   useEffect(() => {
@@ -201,7 +157,7 @@ const EnhancedPracticeTest = ({ user }) => {
     }
   };
 
-  // Update the handleSubmitTest function with Firebase integration
+  // Submit the test
   const handleSubmitTest = async () => {
     // Calculate score
     let correct = 0;
@@ -235,12 +191,12 @@ const EnhancedPracticeTest = ({ user }) => {
     setTestCompleted(true);
     
     // Save attempt to Firebase if user is logged in
-    if (user && user.uid) {
+    if (user && user.id && examId) {
       try {
         const attemptId = await updateUserTestProgress(
-          user.uid, 
-          exam.id, 
-          test.id, 
+          user.id, 
+          examId, 
+          testId, 
           resultData
         );
         
@@ -254,7 +210,7 @@ const EnhancedPracticeTest = ({ user }) => {
         console.log('Continuing to show test results despite save error');
       }
     } else {
-      console.log('User not logged in, test progress not saved');
+      console.log('User not logged in or examId missing, test progress not saved');
     }
   };
 
@@ -297,7 +253,11 @@ const EnhancedPracticeTest = ({ user }) => {
         <div className="error-message">
           <h2>Error</h2>
           <p>{error}</p>
-          <button onClick={() => navigate('/tests')} className="btn btn-primary">
+          <div className="debug-info" style={{ marginTop: "20px", fontSize: "0.8rem", color: "#666" }}>
+            <strong>Test ID:</strong> {testId}<br/>
+            <strong>Exam ID:</strong> {examId || "Not provided"}
+          </div>
+          <button onClick={() => examId ? navigate(`/exam/${examId}/practice-tests`) : navigate('/exams')} className="btn btn-primary">
             Back to Tests
           </button>
         </div>
@@ -442,7 +402,7 @@ const EnhancedPracticeTest = ({ user }) => {
                 Retry Test
               </button>
               <button 
-                onClick={() => navigate('/tests')}
+                onClick={() => navigate(`/exam/${examId}/practice-tests`)}
                 className="btn-secondary"
               >
                 Back to Tests
@@ -508,11 +468,16 @@ const EnhancedPracticeTest = ({ user }) => {
               Retry Test
             </button>
             <button 
-              onClick={() => navigate('/tests')}
+              onClick={() => navigate(`/exam/${examId}/practice-tests`)}
               className="btn-outline"
             >
               Back to Tests
             </button>
+          </div>
+          
+          <div className="debug-info" style={{ marginTop: "20px", fontSize: "0.8rem", color: "#666" }}>
+            <strong>Test ID:</strong> {testId}<br/>
+            <strong>Exam ID:</strong> {examId}
           </div>
         </div>
       </div>
@@ -722,6 +687,11 @@ const EnhancedPracticeTest = ({ user }) => {
             </button>
           );
         })}
+      </div>
+      
+      <div className="debug-info" style={{ marginTop: "20px", fontSize: "0.8rem", color: "#666", padding: "10px", background: "#f8f8f8", borderRadius: "4px" }}>
+        <strong>Test ID:</strong> {testId}<br/>
+        <strong>Exam ID:</strong> {examId}
       </div>
     </div>
   );

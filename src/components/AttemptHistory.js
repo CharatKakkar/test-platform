@@ -1,7 +1,7 @@
 // components/AttemptHistory.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getAttemptHistory } from '../services/progressService';
+import { getUserTestAttempts, getAllExams } from '../services/firebaseService';
 import Loading from './Loading';
 import './AttemptHistory.css';
 
@@ -11,17 +11,72 @@ const AttemptHistory = ({ user }) => {
   const [modeFilter, setModeFilter] = useState('all'); // 'all', 'exam', or 'practice'
   const [examFilter, setExamFilter] = useState('all'); // 'all' or a specific examId
   const [exams, setExams] = useState([]);
+  const [examNames, setExamNames] = useState({});
 
   useEffect(() => {
     const fetchAttempts = async () => {
       setLoading(true);
       try {
-        const attemptData = await getAttemptHistory();
-        setAttempts(attemptData);
+        if (!user) {
+          console.log("No user logged in");
+          setLoading(false);
+          return;
+        }
+        
+        const userId = user.id;
+        console.log(`Fetching test attempts for user ${userId}`);
+        
+        // First fetch all exams to get their names
+        const allExams = await getAllExams();
+        console.log(`Found ${allExams.length} exams in database`);
+        
+        // Create a map of exam IDs to exam names
+        const examsMap = {};
+        allExams.forEach(exam => {
+          if (exam.id && exam.title) {
+            examsMap[exam.id] = exam.title;
+          }
+        });
+        
+        // Get test attempts directly from Firebase
+        const attemptData = await getUserTestAttempts(userId);
+        console.log(`Found ${attemptData.length} test attempts`);
+        
+        // Process attempts to ensure consistent structure
+        const processedAttempts = attemptData.map(attempt => {
+          // Find the exam name for this attempt
+          const examName = examsMap[attempt.examId] || "Certification Exam";
+          
+          // Create a processed attempt object
+          return {
+            id: attempt.id,
+            examId: attempt.examId,
+            testId: attempt.testId,
+            testName: attempt.testName || `${examName} - Practice Test`,
+            mode: attempt.mode || 'exam',
+            score: attempt.percentage || 0,
+            correctAnswers: attempt.score || 0,
+            totalQuestions: attempt.totalQuestions || 0,
+            isPassed: attempt.isPassed || (attempt.percentage >= 70),
+            createdAt: attempt.timestamp || attempt.createdAt || new Date()
+          };
+        });
+        
+        setAttempts(processedAttempts);
         
         // Extract unique exam IDs for filtering
-        const uniqueExams = [...new Set(attemptData.map(attempt => attempt.examId))];
+        const uniqueExams = [...new Set(processedAttempts
+          .filter(a => a.examId) // Filter out attempts without examId
+          .map(a => a.examId))];
         setExams(uniqueExams);
+        
+        // Create a map of exam names from the attempts and exams data
+        const namesMap = {};
+        uniqueExams.forEach(examId => {
+          namesMap[examId] = examsMap[examId] || "Certification Exam";
+        });
+        
+        setExamNames(namesMap);
       } catch (error) {
         console.error("Error fetching attempt history:", error);
       } finally {
@@ -30,7 +85,7 @@ const AttemptHistory = ({ user }) => {
     };
     
     fetchAttempts();
-  }, []);
+  }, [user]);
   
   // Filter attempts by mode and exam
   const filteredAttempts = attempts.filter(attempt => {
@@ -49,16 +104,13 @@ const AttemptHistory = ({ user }) => {
   
   // Get a human-readable exam name from ID
   const getExamName = (examId) => {
-    const examNames = {
-      '1': 'CompTIA A+',
-      '2': 'AWS Solutions Architect',
-      '3': 'Certified Scrum Master',
-      '4': 'Cisco CCNA',
-      '5': 'PMP',
-      '6': 'Azure Fundamentals'
-    };
+    // First, check our collected exam names
+    if (examNames[examId]) {
+      return examNames[examId];
+    }
     
-    return examNames[examId] || `Exam ${examId}`;
+    // If we don't have a name, use a shortened ID for display
+    return `Exam ${examId.substring(0, 6)}...`;
   };
   
   // Format date string
@@ -181,8 +233,7 @@ const AttemptHistory = ({ user }) => {
               <tbody>
                 {filteredAttempts.map(attempt => (
                   <tr key={attempt.id}>
-                    {/* Use the stored testName if available, otherwise generate one */}
-                    <td>{attempt.testName || getTestName(attempt)}</td>
+                    <td>{attempt.testName || `Practice Test`}</td>
                     <td>{formatDate(attempt.createdAt)}</td>
                     <td>
                       <span className={`mode-badge ${attempt.mode}`}>
@@ -199,7 +250,10 @@ const AttemptHistory = ({ user }) => {
                     <td>
                       <Link 
                         to={`/practice-test/${attempt.testId}`} 
-                        state={{ mode: attempt.mode }}
+                        state={{ 
+                          mode: attempt.mode,
+                          examId: attempt.examId 
+                        }}
                         className="retry-btn"
                       >
                         Retry
@@ -210,6 +264,18 @@ const AttemptHistory = ({ user }) => {
               </tbody>
             </table>
           </div>
+          
+          <div className="debug-info" style={{ marginTop: "20px", fontSize: "0.8rem", color: "#666", padding: "10px", background: "#f8f8f8", borderRadius: "4px" }}>
+            <h4>Debug Information</h4>
+            <div>
+              <strong>Exams Available:</strong>
+              <ul>
+                {exams.map(examId => (
+                  <li key={examId}>{examId} ({getExamName(examId)})</li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </>
       )}
       
@@ -218,13 +284,6 @@ const AttemptHistory = ({ user }) => {
       </div>
     </div>
   );
-  
-  // Helper function to generate a test name if not stored
-  function getTestName(attempt) {
-    const examName = getExamName(attempt.examId);
-    const testNumber = attempt.testId.split('-')[1] || '1';
-    return `${examName} - Practice Test ${testNumber}`;
-  }
 };
 
 export default AttemptHistory;
