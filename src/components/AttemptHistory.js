@@ -47,14 +47,7 @@ const AttemptHistory = ({ user }) => {
     return true;
   });
   
-  // Get a human-readable test name
-  const getTestName = (attempt) => {
-    const examName = getExamName(attempt.examId);
-    const testNumber = attempt.testId.split('-')[1];
-    return `${examName} - Practice Test ${testNumber}`;
-  };
-  
-  // Get exam name from ID
+  // Get a human-readable exam name from ID
   const getExamName = (examId) => {
     const examNames = {
       '1': 'CompTIA A+',
@@ -188,7 +181,8 @@ const AttemptHistory = ({ user }) => {
               <tbody>
                 {filteredAttempts.map(attempt => (
                   <tr key={attempt.id}>
-                    <td>{getTestName(attempt)}</td>
+                    {/* Use the stored testName if available, otherwise generate one */}
+                    <td>{attempt.testName || getTestName(attempt)}</td>
                     <td>{formatDate(attempt.createdAt)}</td>
                     <td>
                       <span className={`mode-badge ${attempt.mode}`}>
@@ -224,6 +218,13 @@ const AttemptHistory = ({ user }) => {
       </div>
     </div>
   );
+  
+  // Helper function to generate a test name if not stored
+  function getTestName(attempt) {
+    const examName = getExamName(attempt.examId);
+    const testNumber = attempt.testId.split('-')[1] || '1';
+    return `${examName} - Practice Test ${testNumber}`;
+  }
 };
 
 export default AttemptHistory;

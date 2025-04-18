@@ -5,7 +5,6 @@ import Loading from './Loading';
 import './EnhancedPracticeTest.css';
 import { updateTestProgress } from '../services/progressService';
 
-
 const EnhancedPracticeTest = ({ user }) => {
   const { testId } = useParams();
   const navigate = useNavigate();
@@ -30,12 +29,28 @@ const EnhancedPracticeTest = ({ user }) => {
     const fetchTestData = async () => {
       setLoading(true);
       try {
+        // Extract examId from testId (format is "examId-testNumber")
+        let examId = '1';
+        let testNumber = '1';
+        
+        if (testId && testId.includes('-')) {
+          const parts = testId.split('-');
+          examId = parts[0];
+          testNumber = parts[1] || '1';
+        }
+        
+        // Get a display-friendly exam name based on the examId
+        const examName = getExamName(examId);
+        
         // Simulate API call - in a real app, you would fetch from your backend
         setTimeout(() => {
           // Mock test data based on ID
           const testData = {
-            id: parseInt(testId),
-            title: `Practice Test ${testId}`,
+            id: testId,
+            examId: examId,
+            testNumber: testNumber,
+            // Use a user-friendly title that doesn't show the raw IDs
+            title: `${examName} - Practice Test ${testNumber}`,
             description: 'Comprehensive test to evaluate your knowledge and prepare for certification.',
             timeLimit: 60, // minutes
             questionsCount: 10,
@@ -43,7 +58,7 @@ const EnhancedPracticeTest = ({ user }) => {
           };
           
           // Generate mock questions
-          const mockQuestions = generateMockQuestions(parseInt(testId), 10);
+          const mockQuestions = generateMockQuestions(parseInt(testNumber), 10);
           
           setTest(testData);
           setQuestions(mockQuestions);
@@ -63,6 +78,35 @@ const EnhancedPracticeTest = ({ user }) => {
 
     fetchTestData();
   }, [testId, mode]);
+
+  // Helper function to get a readable exam name
+  function getExamName(examId) {
+    // Check if the examId is already a simple number
+    const numId = parseInt(examId);
+    if (!isNaN(numId) && numId >= 1 && numId <= 6) {
+      return getExamNameById(numId);
+    }
+    
+    // For complex IDs, hash them to a number between 1-6
+    let hash = 0;
+    for (let i = 0; i < examId.length; i++) {
+      hash = (hash + examId.charCodeAt(i)) % 6;
+    }
+    return getExamNameById(hash + 1);
+  }
+  
+  // Get exam name from ID
+  function getExamNameById(id) {
+    const titles = {
+      1: 'CompTIA A+ Certification',
+      2: 'AWS Certified Solutions Architect',
+      3: 'Certified Scrum Master (CSM)',
+      4: 'Cisco CCNA Certification',
+      5: 'PMP Certification',
+      6: 'Microsoft Azure Fundamentals (AZ-900)'
+    };
+    return titles[id] || `Certification Exam ${id}`;
+  }
 
   // Timer effect for exam mode
   useEffect(() => {
@@ -155,47 +199,84 @@ const EnhancedPracticeTest = ({ user }) => {
     }
   };
 
-  // Submit the entire test
-  const handleSubmitTest = async () => {
-    // Calculate score
-    let correct = 0;
-    let totalAnswered = 0;
-    
-    questions.forEach(question => {
-      if (answers[question.id]) {
-        totalAnswered++;
-        if (answers[question.id] === question.correctAnswer) {
-          correct++;
-        }
+// Update the handleSubmitTest function with better error handling
+const handleSubmitTest = async () => {
+  // Calculate score
+  let correct = 0;
+  let totalAnswered = 0;
+  
+  questions.forEach(question => {
+    if (answers[question.id]) {
+      totalAnswered++;
+      if (answers[question.id] === question.correctAnswer) {
+        correct++;
       }
-    });
-    
-    const percentage = Math.round((correct / questions.length) * 100);
-    const resultData = {
-      score: correct,
-      totalQuestions: questions.length,
-      answeredQuestions: totalAnswered,
-      percentage: percentage,
-      isPassed: percentage >= (test?.passingScore || 70),
-      timeSpent: test?.timeLimit * 60 - timeRemaining,
-      mode: mode,
-      passingScore: test?.passingScore || 70
-    };
-    
-    setScore(resultData);
-    setTestCompleted(true);
-    
-    // Save attempt to Firebase
-    try {
-      // Extract examId from testId (format is "examId-testNumber")
-      const [examId, testNumber] = testId.split('-');
-      await updateTestProgress(examId, testId, resultData);
-      console.log('Test progress saved to Firebase');
-    } catch (error) {
-      console.error('Error saving test progress:', error);
     }
+  });
+  
+  const percentage = Math.round((correct / questions.length) * 100);
+  const resultData = {
+    score: correct,
+    totalQuestions: questions.length,
+    answeredQuestions: totalAnswered,
+    percentage: percentage,
+    isPassed: percentage >= (test?.passingScore || 70),
+    timeSpent: test?.timeLimit * 60 - timeRemaining,
+    mode: mode,
+    passingScore: test?.passingScore || 70,
+    // Add the user-friendly test name
+    testName: test.title
   };
-
+  
+  // Set the local state regardless of whether Firebase save works
+  setScore(resultData);
+  setTestCompleted(true);
+  
+  // Save attempt to Firebase
+  try {
+    // Extract examId from testId (format is "examId-testNumber")
+    let examId;
+    
+    // Check if testId contains a hyphen
+    if (testId && testId.includes('-')) {
+      const parts = testId.split('-');
+      examId = parts[0];
+      console.log(`Using examId "${examId}" extracted from testId "${testId}"`);
+    } else {
+      // If testId doesn't match the expected format, use it as is or extract a number
+      examId = testId;
+      console.log(`Using entire testId "${testId}" as examId`);
+    }
+    
+    // Ensure examId is a valid string (not undefined or null)
+    if (!examId) {
+      console.error(`Invalid examId extracted from testId "${testId}"`);
+      // Fallback to a safe default to prevent NaN in the database
+      examId = "1";
+      console.log(`Using fallback examId "${examId}"`);
+    }
+    
+    console.log(`Saving progress with examId: "${examId}" and testId: "${testId}"`);
+    const attemptId = await updateTestProgress(examId, testId, resultData);
+    
+    if (attemptId) {
+      console.log(`Test progress saved successfully with ID: ${attemptId}`);
+    } else {
+      console.log('Failed to save test progress, but test results are still displayed');
+      
+      // You could show a message to the user here if needed
+      /* 
+      setErrorMessage('Your test results are shown but could not be saved to your account. ' +
+                     'You may need to sign in again.');
+      */
+    }
+  } catch (error) {
+    console.error('Error saving test progress:', error);
+    console.log('Continuing to show test results despite save error');
+    
+    // You could show a message to the user here if needed
+  }
+};
   // Retry the test
   const handleRetry = () => {
     setAnswers({});

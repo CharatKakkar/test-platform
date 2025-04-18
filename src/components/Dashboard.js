@@ -67,13 +67,6 @@ function Dashboard({ user }) {
     
     fetchDashboardData();
   }, []);
-
-  // Get a human-readable test name
-  const getTestName = (attempt) => {
-    const examName = getExamName(attempt.examId);
-    const testNumber = attempt.testId.split('-')[1];
-    return `${examName} - Practice Test ${testNumber}`;
-  };
   
   // Get exam name from ID
   const getExamName = (examId) => {
@@ -87,6 +80,18 @@ function Dashboard({ user }) {
     };
     
     return examNames[examId] || `Exam ${examId}`;
+  };
+  
+  // Generate a test name if not stored
+  const getTestName = (attempt) => {
+    // Use the stored testName if available, otherwise generate one
+    if (attempt.testName) {
+      return attempt.testName;
+    }
+    
+    const examName = getExamName(attempt.examId);
+    const testNumber = attempt.testId.split('-')[1] || '1';
+    return `${examName} - Practice Test ${testNumber}`;
   };
   
   // Format date string

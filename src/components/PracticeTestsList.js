@@ -20,23 +20,27 @@ const PracticeTestsList = ({ user }) => {
     const fetchExamAndTests = async () => {
       setLoading(true);
       try {
+        // Use a simplified numeric ID for display purposes regardless of the actual examId
+        const displayId = getDisplayId(examId);
+        
         // In a real app, you would fetch this data from your backend
         // Mock exam data
         const examData = {
-          id: parseInt(examId),
-          title: getExamTitle(parseInt(examId)),
+          id: String(examId), // Store the actual examId for database operations
+          displayId: displayId, // Use this for display purposes
+          title: getExamTitle(displayId),
           description: 'Comprehensive certification exam to validate your skills and knowledge.',
-          category: getExamCategory(parseInt(examId)),
+          category: getExamCategory(displayId),
           purchaseDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
           expiryDate: new Date(Date.now() + 358 * 24 * 60 * 60 * 1000).toISOString(), // 358 days later
           passingScore: 70
         };
         
         // Generate 6 practice tests for this exam
-        const tests = generatePracticeTests(parseInt(examId), 6);
+        const tests = generatePracticeTests(examData.id, displayId, examData.title, 6);
         
         // Get progress data from Firebase
-        const examProgress = await getExamProgress(examId);
+        const examProgress = await getExamProgress(examData.id);
         console.log('Loaded progress data from Firebase:', examProgress);
         
         setExam(examData);
@@ -52,17 +56,36 @@ const PracticeTestsList = ({ user }) => {
     fetchExamAndTests();
   }, [examId]);
 
+  // Convert any examId to a simple display ID (1-6)
+  const getDisplayId = (rawId) => {
+    // If the rawId is already a number between 1-6, use it
+    const numId = parseInt(rawId);
+    if (!isNaN(numId) && numId >= 1 && numId <= 6) {
+      return numId;
+    }
+    
+    // Otherwise, hash the string to a number between 1-6
+    // This is a simple hash function that will always return the same number for the same string
+    let hash = 0;
+    for (let i = 0; i < rawId.length; i++) {
+      hash = (hash + rawId.charCodeAt(i)) % 6;
+    }
+    return hash + 1; // Make it 1-based instead of 0-based
+  };
 
   // Helper function to generate mock practice tests
-  const generatePracticeTests = (examId, count) => {
+  const generatePracticeTests = (actualExamId, displayId, examTitle, count) => {
     const tests = [];
     const difficultyLevels = ['Easy', 'Medium', 'Medium', 'Hard', 'Hard', 'Challenge'];
     
     for (let i = 1; i <= count; i++) {
       tests.push({
-        id: `${examId}-${i}`,
-        examId: examId,
+        id: `${actualExamId}-${i}`, // Actual ID for database operations
+        displayId: i, // Simple numeric ID for display
+        examId: actualExamId,
+        examTitle: examTitle, // Include the exam title for display
         title: `Practice Test ${i}`,
+        displayName: `${examTitle} - Practice Test ${i}`, // Combined display name
         description: `Comprehensive practice test designed to simulate the actual certification exam experience, with ${i === 6 ? 'challenging' : 'realistic'} questions.`,
         questionCount: i === 6 ? 75 : 60,
         timeLimit: i === 6 ? 90 : 60, // minutes
@@ -101,7 +124,6 @@ const PracticeTestsList = ({ user }) => {
   }
 
   // Calculate exam progress percentage
-  // Update calculateProgress function
   const calculateProgress = () => {
     if (!practiceTests.length) return 0;
     
@@ -122,9 +144,7 @@ const PracticeTestsList = ({ user }) => {
   };
 
   // Handle reset progress button click
-// Update the handleResetProgress function in PracticeTestsList.js
-
-const handleResetProgress = async () => {
+  const handleResetProgress = async () => {
     setIsResetting(true);
     try {
       // Reset all progress in Firebase
@@ -134,7 +154,7 @@ const handleResetProgress = async () => {
       setProgressData({}); // Set to empty object immediately without waiting for refetch
       
       // Optionally, you can refetch from Firebase to ensure sync
-      const examProgress = await getExamProgress(examId);
+      const examProgress = await getExamProgress(exam.id);
       setProgressData(examProgress);
       
       // Show a success notification (if you have a notification system)
@@ -297,143 +317,143 @@ const handleResetProgress = async () => {
         </div>
       ) : (
         <div className="practice-tests-list">
-            {filteredTests.map(test => {
-  const testProgress = progressData[test.id] || { attempts: 0, bestScore: 0 };
-  
-  return (
-    <div key={test.id} className="practice-test-card">
-      <div className="test-card-header">
-        <div className="test-info">
-          <h3>{test.title}</h3>
-          <div className="test-meta">
-            <span className="test-meta-item">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-              {test.timeLimit} min
-            </span>
-            <span className="test-meta-item">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-                <polyline points="13 2 13 9 20 9"></polyline>
-              </svg>
-              {test.questionCount} questions
-            </span>
-            <span className={`difficulty-badge ${test.difficulty.toLowerCase()}`}>
-              {test.difficulty}
-            </span>
-          </div>
-        </div>
-        
-        <div className="test-progress">
-          {testProgress.attempts > 0 ? (
-            <div className="test-stats">
-              <div className="attempts-info">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                </svg>
-                {testProgress.attempts} {testProgress.attempts === 1 ? 'attempt' : 'attempts'}
-              </div>
-              <div className={`best-score ${testProgress.bestScore >= test.passingScore ? 'passing' : 'failing'}`}>
-                {testProgress.bestScore}%
-              </div>
-            </div>
-          ) : (
-            <div className="not-started">Not started yet</div>
-          )}
-        </div>
-      </div>
-      
-      <div className="test-card-details">
-        <p className="test-description">{test.description}</p>
-        
-        {testProgress.attempts > 0 && (
-          <div className="test-history">
-            <h4>Attempt History</h4>
-            <div className="history-stats">
-              <div className="history-stat">
-                <span className="stat-label">First Attempt</span>
-                <span className="stat-value">{testProgress.firstScore || 0}%</span>
-              </div>
-              <div className="history-stat">
-                <span className="stat-label">Best Score</span>
-                <span className={`stat-value ${testProgress.bestScore >= test.passingScore ? 'passing' : 'failing'}`}>
-                  {testProgress.bestScore}%
-                </span>
-              </div>
-              <div className="history-stat">
-                <span className="stat-label">Last Attempt</span>
-                <span className="stat-value">{testProgress.lastScore || 0}%</span>
-              </div>
-              <div className="history-stat">
-                <span className="stat-label">Attempts</span>
-                <span className="stat-value">{testProgress.attempts}</span>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div className="test-actions">
-          <div className="mode-options">
-            <div className="mode-option">
-              <h4>Exam Mode</h4>
-              <p>Timed test with results at the end. Simulates the actual exam experience.</p>
-              <button 
-                className="mode-btn exam-mode"
-                onClick={() => startTest(test.id, 'exam')}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                Start Exam Mode
-              </button>
-            </div>
+          {filteredTests.map(test => {
+            const testProgress = progressData[test.id] || { attempts: 0, bestScore: 0 };
             
-            <div className="mode-option">
-              <h4>Practice Mode</h4>
-              <p>Untimed test with immediate feedback. Great for learning and reviewing content.</p>
-              <button 
-                className="mode-btn practice-mode"
-                onClick={() => startTest(test.id, 'practice')}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                </svg>
-                Start Practice Mode
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-})}
+            return (
+              <div key={test.id} className="practice-test-card">
+                <div className="test-card-header">
+                  <div className="test-info">
+                    <h3>{exam.title} - {test.title}</h3>
+                    <div className="test-meta">
+                      <span className="test-meta-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        {test.timeLimit} min
+                      </span>
+                      <span className="test-meta-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                          <polyline points="13 2 13 9 20 9"></polyline>
+                        </svg>
+                        {test.questionCount} questions
+                      </span>
+                      <span className={`difficulty-badge ${test.difficulty.toLowerCase()}`}>
+                        {test.difficulty}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="test-progress">
+                    {testProgress.attempts > 0 ? (
+                      <div className="test-stats">
+                        <div className="attempts-info">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                          </svg>
+                          {testProgress.attempts} {testProgress.attempts === 1 ? 'attempt' : 'attempts'}
+                        </div>
+                        <div className={`best-score ${testProgress.bestScore >= test.passingScore ? 'passing' : 'failing'}`}>
+                          {testProgress.bestScore}%
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="not-started">Not started yet</div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="test-card-details">
+                  <p className="test-description">{test.description}</p>
+                  
+                  {testProgress.attempts > 0 && (
+                    <div className="test-history">
+                      <h4>Attempt History</h4>
+                      <div className="history-stats">
+                        <div className="history-stat">
+                          <span className="stat-label">First Attempt</span>
+                          <span className="stat-value">{testProgress.firstScore || 0}%</span>
+                        </div>
+                        <div className="history-stat">
+                          <span className="stat-label">Best Score</span>
+                          <span className={`stat-value ${testProgress.bestScore >= test.passingScore ? 'passing' : 'failing'}`}>
+                            {testProgress.bestScore}%
+                          </span>
+                        </div>
+                        <div className="history-stat">
+                          <span className="stat-label">Last Attempt</span>
+                          <span className="stat-value">{testProgress.lastScore || 0}%</span>
+                        </div>
+                        <div className="history-stat">
+                          <span className="stat-label">Attempts</span>
+                          <span className="stat-value">{testProgress.attempts}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="test-actions">
+                    <div className="mode-options">
+                      <div className="mode-option">
+                        <h4>Exam Mode</h4>
+                        <p>Timed test with results at the end. Simulates the actual exam experience.</p>
+                        <button 
+                          className="mode-btn exam-mode"
+                          onClick={() => startTest(test.id, 'exam')}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                          </svg>
+                          Start Exam Mode
+                        </button>
+                      </div>
+                      
+                      <div className="mode-option">
+                        <h4>Practice Mode</h4>
+                        <p>Untimed test with immediate feedback. Great for learning and reviewing content.</p>
+                        <button 
+                          className="mode-btn practice-mode"
+                          onClick={() => startTest(test.id, 'practice')}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                          </svg>
+                          Start Practice Mode
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-<div className="debug-controls" style={{ marginTop: '30px', padding: '15px', background: '#f8f8f8', borderRadius: '8px' }}>
-    <h3>Debug Controls</h3>
-    <button 
-      onClick={handleResetProgress}
-      disabled={isResetting}
-      style={{ 
-        padding: '8px 16px', 
-        background: '#e74c3c', 
-        color: 'white', 
-        border: 'none', 
-        borderRadius: '4px',
-        cursor: 'pointer',
-        opacity: isResetting ? 0.7 : 1
-      }}
-    >
-      {isResetting ? 'Resetting...' : 'Reset All Progress Data'}
-    </button>
-    <p style={{ fontSize: '0.8rem', marginTop: '8px', color: '#666' }}>
-      This will clear all saved test progress in Firebase (for development purposes).
-    </p>
-  </div>
+      <div className="debug-controls" style={{ marginTop: '30px', padding: '15px', background: '#f8f8f8', borderRadius: '8px' }}>
+        <h3>Debug Controls</h3>
+        <button 
+          onClick={handleResetProgress}
+          disabled={isResetting}
+          style={{ 
+            padding: '8px 16px', 
+            background: '#e74c3c', 
+            color: 'white', 
+            border: 'none', 
+            borderRadius: '4px',
+            cursor: 'pointer',
+            opacity: isResetting ? 0.7 : 1
+          }}
+        >
+          {isResetting ? 'Resetting...' : 'Reset All Progress Data'}
+        </button>
+        <p style={{ fontSize: '0.8rem', marginTop: '8px', color: '#666' }}>
+          This will clear all saved test progress in Firebase (for development purposes).
+        </p>
+      </div>
     </div>
   );
 };
