@@ -1,4 +1,4 @@
-/* PurchasedExams.css - Updated with better text alignment */
+/* PurchasedExams.css - With stacked labels and values */
 
 /* Main container */
 .dashboard {
@@ -21,78 +21,67 @@
     margin-top: 1.5rem;
   }
   
-  /* Exam card styling */
+  /* Slightly more compact exam card */
   .exam-card {
     background-color: #fff;
-    border-radius: 10px;
-    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
-    padding: 1.75rem;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
+    padding: 1.5rem;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     position: relative;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     height: 100%;
-    border-top: 4px solid #3498db;
+    border-top: 3px solid #3498db;
   }
   
   .exam-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    transform: translateY(-4px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
   }
   
-  /* Badge styling - REMOVED */
-  /* .exam-badge {
-    position: absolute;
-    top: 12px;
-    right: -30px;
-    background-color: #4caf50;
-    color: white;
-    padding: 5px 30px;
-    font-size: 0.75rem;
-    transform: rotate(45deg);
-  } */
-  
-  /* Title styling with improved height for longer titles */
+  /* More compact title styling */
   .exam-card h3 {
-    font-size: 1.25rem;
-    margin-bottom: 1.25rem;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
     color: #2c3e50;
-    line-height: 1.4;
-    min-height: 3.5rem; /* Increased height for longer titles */
+    line-height: 1.35;
+    min-height: 2.7rem; /* Reduced height but still enough for most titles */
     display: -webkit-box;
-    -webkit-line-clamp: 3; /* Allow up to 3 lines instead of 2 */
+    -webkit-line-clamp: 2; /* Back to 2 lines but with more compact styling */
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
     border-bottom: 1px solid #f1f1f1;
-    padding-bottom: 0.75rem;
+    padding-bottom: 0.6rem;
   }
   
-  /* Exam info section */
+  /* Exam info section with stacked layout */
   .exam-info {
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
     flex-grow: 1; /* Takes up available space */
   }
   
   .exam-info p {
-    margin: 0.75rem 0;
+    margin: 0.6rem 0;
     color: #555;
     font-size: 0.95rem;
     display: flex;
-    justify-content: space-between; /* Align label and value */
-    align-items: baseline;
+    flex-direction: column; /* Stack label and value */
+    gap: 2px; /* Space between label and value */
   }
   
   .info-label {
     font-weight: 600;
     color: #444;
-    margin-right: 0.5rem;
+    font-size: 0.85rem;
   }
   
   .info-value {
     color: #333;
     font-weight: 500;
+    font-size: 1rem;
   }
   
   /* Button styling */

@@ -31,13 +31,13 @@ function PurchasedExams({ user }) {
       
       try {
         // Ensure we have a valid user
-        if (!user || !user.uid) {
+        if (!user) {
           console.log("No valid user found");
           setLoading(false);
           return;
         }
         
-        const userId = user.uid;
+        const userId = user.id;
         console.log(`Fetching purchased exams for user: ${userId}`);
         
         // Get user's purchased exams
@@ -134,8 +134,9 @@ function PurchasedExams({ user }) {
             <div className="purchased-exams-grid">
               {purchasedExams.map(exam => (
                 <div key={exam.id} className="exam-card">
-                  {/* Removed the green ribbon badge */}
-                  <h3>{exam.title || 'Certification Exam'}</h3>
+                  <h3 title={exam.title || 'Certification Exam'}>
+                    {exam.title || 'Certification Exam'}
+                  </h3>
                   <div className="exam-info">
                     <p>
                       <span className="info-label">Practice Tests:</span>
