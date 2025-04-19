@@ -307,12 +307,12 @@ const handleRegister = async (name, email, password, isGoogleAuth = false) => {
             {/* Updated exam routes */}
             <Route path="/exams" element={
               <EnhancedHomePage
-                user={user} 
                 isAuthenticated={isAuthenticated} 
                 addToCart={handleAddToCart}
                 removeFromCart={handleRemoveFromCart}
                 cart={cart}
                 showAllExams={true}
+                user={user} 
               />
             } />
             <Route path="/exams/:examId" element={

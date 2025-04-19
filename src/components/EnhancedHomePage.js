@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllExams } from '../services/firebaseService'; // Import the service to fetch exams
+import { getAllExams, getUserPurchasedExams } from '../services/firebaseService'; // Import the service to fetch exams and purchases
 import './EnhancedHomePage.css';
 
-const EnhancedHomePage = ({ isAuthenticated, addToCart, removeFromCart, cart = [] }) => {
+const EnhancedHomePage = ({ isAuthenticated, addToCart, removeFromCart, cart = [], user }) => {
+  // Extract userId from the user object if available
+  const userId = user?.id || null;
+  
   const [exams, setExams] = useState([]);
+  const [purchasedExams, setPurchasedExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -28,6 +32,30 @@ const EnhancedHomePage = ({ isAuthenticated, addToCart, removeFromCart, cart = [
     
     fetchExams();
   }, []);
+  
+  // Fetch user's purchased exams if user is authenticated
+  useEffect(() => {
+    const fetchPurchasedExams = async () => {
+      if (!isAuthenticated || !userId) {
+        // If user is not authenticated or no userId provided, no need to fetch purchases
+        console.log('User not authenticated or no userId available, skipping purchase fetch');
+        setPurchasedExams([]);
+        return;
+      }
+      
+      try {
+        console.log(`Fetching purchased exams for user ${userId}...`);
+        const fetchedPurchases = await getUserPurchasedExams(userId);
+        console.log('Fetched purchased exams:', fetchedPurchases);
+        setPurchasedExams(fetchedPurchases);
+      } catch (error) {
+        console.error('Error fetching purchased exams:', error);
+        setPurchasedExams([]);
+      }
+    };
+    
+    fetchPurchasedExams();
+  }, [isAuthenticated, userId]);
   
   const getUniqueCategories = () => {
     const categories = exams.map(exam => exam.category);
@@ -54,6 +82,11 @@ const EnhancedHomePage = ({ isAuthenticated, addToCart, removeFromCart, cart = [
   // Check if an exam is in the cart
   const isInCart = (examId) => {
     return Array.isArray(cart) && cart.some(item => item.id === examId);
+  };
+  
+  // Check if user already owns the exam
+  const isOwned = (examId) => {
+    return Array.isArray(purchasedExams) && purchasedExams.some(item => item.examId === examId);
   };
   
   // Handle adding item to cart
@@ -201,23 +234,31 @@ const EnhancedHomePage = ({ isAuthenticated, addToCart, removeFromCart, cart = [
                 
                 <div className="exam-tile-footer">
                   <div className="exam-actions">
-                    <Link 
-                      to={`/exam/${exam.id}/practice-tests`} 
-                      className="btn btn-primary"
-                      onClick={() => console.log("Navigating to exam with ID:", exam.id)}
-                    >
-                      Practice Tests
-                    </Link>
-                    <Link to={`/demo/${exam.id}`} className="btn btn-outline">Try Demo</Link>
-                    <button 
-                      className={`btn ${isInCart(exam.id) ? 'btn-danger' : 'btn-success'}`}
-                      onClick={() => isInCart(exam.id) 
-                        ? handleRemoveFromCart(exam.id) 
-                        : handleAddToCart(exam)
-                      }
-                    >
-                      {isInCart(exam.id) ? 'Remove from Cart' : 'Add to Cart'}
-                    </button>
+                    {isOwned(exam.id) ? (
+                      <React.Fragment>
+                        <Link 
+                          to={`/exam/${exam.id}/practice-tests`} 
+                          className="btn btn-primary"
+                          onClick={() => console.log("Navigating to exam with ID:", exam.id)}
+                        >
+                          Practice Tests
+                        </Link>
+                        <span className="btn btn-owned">You already own this</span>
+                      </React.Fragment>
+                    ) : (
+                      <React.Fragment>
+                        <Link to={`/demo/${exam.id}`} className="btn btn-outline">Try Demo</Link>
+                        <button 
+                          className={`btn ${isInCart(exam.id) ? 'btn-danger' : 'btn-success'}`}
+                          onClick={() => isInCart(exam.id) 
+                            ? handleRemoveFromCart(exam.id) 
+                            : handleAddToCart(exam)
+                          }
+                        >
+                          {isInCart(exam.id) ? 'Remove from Cart' : 'Add to Cart'}
+                        </button>
+                      </React.Fragment>
+                    )}
                   </div>
                 </div>
                 

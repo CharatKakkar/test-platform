@@ -443,3 +443,30 @@
       grid-template-columns: 1fr;
     }
   }
+
+  /* Add this to your EnhancedHomePage.css file */
+
+.btn-owned {
+  background-color: #e8e8e8;
+  color: #555;
+  cursor: default;
+  border: 1px solid #ccc;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 4px;
+}
+
+.btn-owned:hover {
+  background-color: #e8e8e8;
+}
+
+/* Optional: Add a small check mark icon */
+.btn-owned::before {
+  content: "✓";
+  margin-right: 6px;
+  color: #4b9b4b;
+  font-weight: bold;
+}
