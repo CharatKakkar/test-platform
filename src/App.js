@@ -14,7 +14,6 @@ import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 import TestList from './components/TestList';
 import TestDetails from './components/TestDetails';
-import TestAttempt from './components/TestAttempt';
 import AttemptHistory from './components/AttemptHistory';
 import ExamDetails from './components/ExamDetails';
 import DemoExam from './components/DemoExam.js';
@@ -22,6 +21,7 @@ import Checkout from './components/Checkout';
 import Footer from './components/Footer';
 import Cart from './components/Cart.js';
 import Order from './components/Order.js';
+import PurchasedExams from './components/PurchasedExams.js';
 
 // Firebase Services
 // Authentication methods for App.js
@@ -290,6 +290,11 @@ const handleRegister = async (name, email, password, isGoogleAuth = false) => {
             } />
             <Route path="/tests/:testId" element={isAuthenticated ? 
               <TestDetails user={user} /> : 
+              <Navigate to="/login" />
+            } />
+            // Add this route within the Routes component in the return statement
+            <Route path="/purchased" element={isAuthenticated ? 
+              <PurchasedExams user={user} /> : 
               <Navigate to="/login" />
             } />
             <Route path="/history" element={isAuthenticated ? 

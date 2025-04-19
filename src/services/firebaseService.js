@@ -255,109 +255,74 @@ export const updateQuestion = async (examId, testId, questionId, questionData) =
  */
 export const getUserExamProgress = async (userId) => {
   try {
-    // Check if userId is undefined, null, or empty string
-    if (!userId) {
-      console.log("No userId provided to getUserExamProgress");
+    console.log(`Getting progress data for user: ${userId}`);
+    
+    // Reference to the user's attempts subcollection
+    const attemptsCollectionRef = collection(db, 'testAttempts', userId, 'attempts');
+    const attemptsSnapshot = await getDocs(attemptsCollectionRef);
+    
+    if (attemptsSnapshot.empty) {
+      console.log('No attempts found for user');
       return {};
     }
-
-    console.log(`Fetching progress for user ${userId}`);
     
-    // Access the nested collection structure for test attempts
-    const attemptsRef = collection(db, 'testAttempts', userId, 'attempts');
+    console.log(`Found ${attemptsSnapshot.size} attempts for user`);
     
-    try {
-      const snapshot = await getDocs(attemptsRef);
-      console.log(`Found ${snapshot.docs.length} test attempts for user`);
+    // Initialize the progress data object
+    const progressByExam = {};
+    
+    // Process each attempt document
+    attemptsSnapshot.forEach(attemptDoc => {
+      const attemptData = attemptDoc.data();
+      console.log(`Processing attempt ${attemptDoc.id}:`, attemptData);
       
-      if (!snapshot || snapshot.empty) {
-        return {};
+      // Extract the relevant fields
+      const examId = attemptData.examId;
+      const testId = attemptData.testId;
+      const score = attemptData.score || 0;
+      
+      if (!examId || !testId) {
+        console.log(`Skipping attempt ${attemptDoc.id} - missing examId or testId`);
+        return; // Skip this iteration if missing required fields
       }
       
-      // Organize by examId and testId for easier access
-      const progressData = {};
+      // Initialize the exam entry if it doesn't exist
+      if (!progressByExam[examId]) {
+        progressByExam[examId] = {};
+      }
       
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        
-        // Extract examId and testId from the data - use direct document IDs
-        const examId = data.examId || '';
-        const testId = data.testId || '';
-        
-        // Make sure required fields exist
-        if (!examId || !testId) {
-          console.warn(`Test attempt missing examId or testId: ${doc.id}`);
-          console.log("Attempt data:", data);
-          return;
-        }
-        
-        // Initialize the exam object if it doesn't exist
-        if (!progressData[examId]) {
-          progressData[examId] = {};
-        }
-        
-        // Initialize the test object if it doesn't exist
-        if (!progressData[examId][testId]) {
-          progressData[examId][testId] = {
-            id: testId,
-            examId: examId,
-            testId: testId,
-            attempts: 0,
-            bestScore: 0,
-            history: []
-          };
-        }
-        
-        // Add this attempt to the history
-        progressData[examId][testId].history.push({
-          id: doc.id,
-          timestamp: data.timestamp || data.createdAt || data.date,
-          score: data.score || data.percentage || 0,
-          timeSpent: data.timeSpent || 0,
-          correctAnswers: data.correctAnswers || data.score || 0,
-          totalQuestions: data.totalQuestions || data.questions || 100,
-          isPassed: data.isPassed || (data.score >= 70) || false,
-          mode: data.mode || 'exam'
-        });
-        
-        // Increment attempt count
-        progressData[examId][testId].attempts += 1;
-        
-        // Update best score if this attempt has a higher score
-        const attemptScore = data.score || data.percentage || 0;
-        if (attemptScore > progressData[examId][testId].bestScore) {
-          progressData[examId][testId].bestScore = attemptScore;
-        }
-        
-        // Add first and last scores
-        if (progressData[examId][testId].attempts === 1) {
-          progressData[examId][testId].firstScore = attemptScore;
-        }
-        progressData[examId][testId].lastScore = attemptScore;
-        
-        // Add test name if available
-        if (data.testName) {
-          progressData[examId][testId].testName = data.testName;
-        }
-      });
+      // Initialize the test entry if it doesn't exist
+      if (!progressByExam[examId][testId]) {
+        progressByExam[examId][testId] = {
+          attempts: 0,
+          bestScore: 0,
+          firstScore: null,
+          lastScore: null
+        };
+      }
       
-      // Log the organized data
-      const examCount = Object.keys(progressData).length;
-      console.log(`Organized test attempts into ${examCount} exams`);
+      // Update the progress data
+      const testProgress = progressByExam[examId][testId];
+      testProgress.attempts++;
       
-      Object.keys(progressData).forEach(examId => {
-        const testCount = Object.keys(progressData[examId]).length;
-        console.log(`Exam ${examId} has ${testCount} tests with attempts`);
-      });
+      // Set first score if this is first recorded attempt
+      if (testProgress.firstScore === null) {
+        testProgress.firstScore = score;
+      }
       
-      return progressData;
-    } catch (error) {
-      console.error("Error querying test attempts:", error);
-      // Return empty object on query error
-      return {};
-    }
+      // Update best score if this attempt is better
+      if (score > testProgress.bestScore) {
+        testProgress.bestScore = score;
+      }
+      
+      // Always update the last score
+      testProgress.lastScore = score;
+    });
+    
+    console.log(`Final progress data for user ${userId}:`, progressByExam);
+    return progressByExam;
   } catch (error) {
-    console.error(`Error getting test attempts for user ${userId}:`, error);
+    console.error('Error getting user progress:', error);
     return {};
   }
 };

@@ -1,0 +1,183 @@
+/* PurchasedExams.css - Updated with better text alignment */
+
+/* Main container */
+.dashboard {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .dashboard h1 {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #333;
+  }
+  
+  /* Grid layout for purchased exams */
+  .purchased-exams-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  
+  /* Exam card styling */
+  .exam-card {
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+    padding: 1.75rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border-top: 4px solid #3498db;
+  }
+  
+  .exam-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  }
+  
+  /* Badge styling - REMOVED */
+  /* .exam-badge {
+    position: absolute;
+    top: 12px;
+    right: -30px;
+    background-color: #4caf50;
+    color: white;
+    padding: 5px 30px;
+    font-size: 0.75rem;
+    transform: rotate(45deg);
+  } */
+  
+  /* Title styling with improved height for longer titles */
+  .exam-card h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1.25rem;
+    color: #2c3e50;
+    line-height: 1.4;
+    min-height: 3.5rem; /* Increased height for longer titles */
+    display: -webkit-box;
+    -webkit-line-clamp: 3; /* Allow up to 3 lines instead of 2 */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid #f1f1f1;
+    padding-bottom: 0.75rem;
+  }
+  
+  /* Exam info section */
+  .exam-info {
+    margin-bottom: 2rem;
+    flex-grow: 1; /* Takes up available space */
+  }
+  
+  .exam-info p {
+    margin: 0.75rem 0;
+    color: #555;
+    font-size: 0.95rem;
+    display: flex;
+    justify-content: space-between; /* Align label and value */
+    align-items: baseline;
+  }
+  
+  .info-label {
+    font-weight: 600;
+    color: #444;
+    margin-right: 0.5rem;
+  }
+  
+  .info-value {
+    color: #333;
+    font-weight: 500;
+  }
+  
+  /* Button styling */
+  .exam-card-actions {
+    margin-top: auto; /* Push to bottom */
+  }
+  
+  .btn-primary.btn-full {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(52, 152, 219, 0.2);
+  }
+  
+  .btn-primary.btn-full:hover {
+    background-color: #2980b9;
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+  }
+  
+  /* Empty state styling */
+  .no-exams {
+    text-align: center;
+    padding: 3rem 1rem;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    margin-top: 2rem;
+  }
+  
+  .no-data-icon {
+    margin-bottom: 1.5rem;
+    color: #aaa;
+  }
+  
+  .no-exams h3 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    color: #333;
+  }
+  
+  .no-exams p {
+    color: #666;
+    margin-bottom: 1.5rem;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  /* Loading container */
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    width: 100%;
+  }
+  
+  .spinner {
+    border-radius: 50%;
+    border-style: solid;
+    border-color: #f3f3f3;
+    border-top-color: #3498db;
+    animation: spin 1s linear infinite;
+  }
+  
+  .spinner-medium {
+    width: 40px;
+    height: 40px;
+    border-width: 3px;
+  }
+  
+  .loading-text {
+    margin-top: 1rem;
+    color: #555;
+    font-size: 1rem;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }

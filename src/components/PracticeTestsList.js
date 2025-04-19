@@ -64,10 +64,16 @@ const PracticeTestsList = ({ user }) => {
         
         // If user is authenticated, get their progress data
         let progress = {};
-        if (user && user.uid) {
-          const userProgress = await getUserExamProgress(user.uid);
+        if (user && user.id) {
+          console.log("Fetching progress for user with ID:", user.id);
+          const userProgress = await getUserExamProgress(user.id);
+          // Log the entire userProgress object to see its structure
+          console.log("User progress data from Firebase:", userProgress);
           // Get just the progress for this exam
           progress = userProgress[examId] || {};
+          console.log("Filtered progress data for this exam:", progress);
+        } else {
+          console.log("User not authenticated or user.id missing:", user);
         }
         
         setExam(examData);
@@ -162,48 +168,75 @@ const PracticeTestsList = ({ user }) => {
   };
 
   // Calculate remaining days of access
-// Calculate remaining days of access
-const getRemainingDays = () => {
-  if (!exam || !exam.purchaseDetails?.validityDays) return 365; // Default to 365 if not set
-  
-  // Helper function to parse custom date format
-  const parseCustomDate = (dateString) => {
-    if (!dateString) return new Date();
+  const getRemainingDays = () => {
+    if (!exam || !exam.purchaseDetails?.validityDays) return 365; // Default to 365 if not set
     
-    try {
-      // Split and parse the custom format
-      const [date, time, timezone] = dateString.split(' at ');
+    // Helper function to parse date from various formats
+    const parseDate = (dateInput) => {
+      if (!dateInput) return new Date();
       
-      // Construct a standardized date string
-      const standardDateString = `${date} ${time} ${timezone}`;
-      return new Date(standardDateString);
-    } catch (error) {
-      console.error('Error parsing date:', dateString, error);
-      return new Date();
+      try {
+        // Case 1: Firestore Timestamp object with seconds and nanoseconds
+        if (dateInput.seconds && dateInput.nanoseconds) {
+          console.log('Parsing Firestore timestamp:', dateInput);
+          return new Date(dateInput.seconds * 1000);
+        }
+        
+        // Case 2: ISO date string format (e.g. "2025-04-18T19:28:30.952Z")
+        if (typeof dateInput === 'string') {
+          console.log('Parsing date string:', dateInput);
+          const parsedDate = new Date(dateInput);
+          
+          // Check if the date is valid
+          if (!isNaN(parsedDate.getTime())) {
+            return parsedDate;
+          }
+          
+          // Custom format handling if needed
+          if (dateInput.includes(' at ')) {
+            const [date, time, timezone] = dateInput.split(' at ');
+            const standardDateString = `${date} ${time} ${timezone}`;
+            return new Date(standardDateString);
+          }
+        }
+        
+        // Case 3: Already a Date object
+        if (dateInput instanceof Date) {
+          return dateInput;
+        }
+        
+        // Default fallback
+        console.log('Unrecognized date format, using current date:', dateInput);
+        return new Date();
+      } catch (error) {
+        console.error('Error parsing date:', dateInput, error);
+        return new Date();
+      }
+    };
+    
+    // Determine the start date with multiple fallback options
+    let startDate;
+    if (exam.purchaseDate) {
+      startDate = parseDate(exam.purchaseDate);
+    } else if (exam.createdAt) {
+      startDate = parseDate(exam.createdAt);
+    } else {
+      // Absolute fallback
+      startDate = new Date();
     }
+    
+    console.log('Using start date:', startDate);
+    
+    const validityDays = exam.purchaseDetails.validityDays || 365;
+    const expiryDate = new Date(startDate);
+    expiryDate.setDate(expiryDate.getDate() + validityDays);
+    
+    const today = new Date();
+    const diffTime = expiryDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays > 0 ? diffDays : 0;
   };
-  
-  // Determine the start date with multiple fallback options
-  let startDate;
-  if (exam.purchaseDate) {
-    startDate = parseCustomDate(exam.purchaseDate);
-  } else if (exam.createdAt) {
-    startDate = parseCustomDate(exam.createdAt);
-  } else {
-    // Absolute fallback
-    startDate = new Date();
-  }
-  
-  const validityDays = exam.purchaseDetails.validityDays || 365;
-  const expiryDate = new Date(startDate);
-  expiryDate.setDate(expiryDate.getDate() + validityDays);
-  
-  const today = new Date();
-  const diffTime = expiryDate - today;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  return diffDays > 0 ? diffDays : 0;
-};
 
   if (loading) {
     return <Loading size="large" text="Loading practice tests..." />;
@@ -224,7 +257,33 @@ const getRemainingDays = () => {
   }
 
   const filteredTests = getFilteredTests();
-  const progressPercentage = calculateProgress();
+  
+  // Add these console logs to debug the progress calculation
+  console.log("Debug - Progress Calculation:");
+  console.log("Practice Tests:", practiceTests);
+  console.log("Progress Data:", progressData);
+
+  // Debug helper to see exactly what's happening in calculateProgress
+  const debugCalculateProgress = () => {
+    if (!practiceTests.length) return 0;
+    let completedTests = 0;
+    
+    practiceTests.forEach(test => {
+      // Check if we have progress data for this test
+      if (progressData[test.id] && progressData[test.id].attempts > 0) {
+        completedTests++;
+      } 
+    });
+    
+    const percentage = Math.round((completedTests / practiceTests.length) * 100);
+
+    return percentage;
+  };
+
+  // Replace the original calculateProgress call with this debug version
+  const progressPercentage = debugCalculateProgress();
+  console.log("Final progress percentage:", progressPercentage);
+  
   const remainingDays = getRemainingDays();
 
   return (
@@ -364,30 +423,11 @@ const getRemainingDays = () => {
                         {test.difficulty}
                       </span>
                     </div>
-                  </div>
-                  
-                  <div className="test-progress">
-                    {testProgress.attempts > 0 ? (
-                      <div className="test-stats">
-                        <div className="attempts-info">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                          </svg>
-                          {testProgress.attempts} {testProgress.attempts === 1 ? 'attempt' : 'attempts'}
-                        </div>
-                        <div className={`best-score ${testProgress.bestScore >= test.passingScore ? 'passing' : 'failing'}`}>
-                          {testProgress.bestScore}%
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="not-started">Not started yet</div>
-                    )}
-                  </div>
+                </div>
                 </div>
                 
                 <div className="test-card-details">
-                  <p className="test-description">{test.description}</p>
-                  
+
                   {testProgress.attempts > 0 && (
                     <div className="test-history">
                       <h4>Attempt History</h4>
