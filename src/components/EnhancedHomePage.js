@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getAllExams, getUserPurchasedExams } from '../services/firebaseService'; // Import the service to fetch exams and purchases
 import './EnhancedHomePage.css';
 
 const EnhancedHomePage = ({ isAuthenticated, addToCart, removeFromCart, cart = [], user }) => {
   // Extract userId from the user object if available
   const userId = user?.id || null;
+  const navigate = useNavigate();
   
   const [exams, setExams] = useState([]);
   const [purchasedExams, setPurchasedExams] = useState([]);
@@ -122,6 +123,24 @@ const EnhancedHomePage = ({ isAuthenticated, addToCart, removeFromCart, cart = [
     }, 3000);
   };
   
+  // Handle clicking on an exam tile to navigate
+  const handleExamClick = (exam) => {
+    if (isOwned(exam.id)) {
+      // If owned, navigate to practice tests
+      navigate(`/exam/${exam.id}/practice-tests`);
+    } else {
+      // If not owned, navigate to exam details
+      navigate(`/exam/${exam.id}`);
+    }
+    
+    // Store exam data in session storage for access on the details page
+    try {
+      sessionStorage.setItem('currentExam', JSON.stringify(exam));
+    } catch (error) {
+      console.error("Error storing exam data in session storage:", error);
+    }
+  };
+  
   // Calculate cart total
   const calculateCartTotal = () => {
     if (!Array.isArray(cart) || cart.length === 0) return 0;
@@ -198,7 +217,12 @@ const EnhancedHomePage = ({ isAuthenticated, addToCart, removeFromCart, cart = [
         <div className="exams-content">
           <div className="exams-grid">
             {filterExams().map(exam => (
-              <div key={exam.id} className="exam-tile">
+              <div 
+                key={exam.id} 
+                className="exam-tile" 
+                onClick={() => handleExamClick(exam)}
+                style={{ cursor: 'pointer' }}
+              >
                 <div className="exam-tile-header">
                   <img 
                     src={exam.thumbnail || getDefaultThumbnail(exam)} 
@@ -233,7 +257,7 @@ const EnhancedHomePage = ({ isAuthenticated, addToCart, removeFromCart, cart = [
                 </div>
                 
                 <div className="exam-tile-footer">
-                  <div className="exam-actions">
+                  <div className="exam-actions" onClick={(e) => e.stopPropagation()}>
                     {isOwned(exam.id) ? (
                       <React.Fragment>
                         <Link 

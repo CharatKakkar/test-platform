@@ -30,64 +30,73 @@ function Dashboard({ user }) {
     setDebugLog(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
   };
   
-  // Handle direct navigation to exam details
-
-// Update the handleExamDetailsNavigation function in your Dashboard component
-
-const handleExamDetailsNavigation = (examId) => {
-  // Log detailed information for debugging
-  console.log("🔍 NAVIGATING TO EXAM:", examId);
-  console.log("📋 Exam type:", typeof examId);
-  console.log("📊 Exam ID length:", examId?.length);
-  
-  // Check if this is a simple numeric ID
-  if (examId && examId.length === 1 && "123456789".includes(examId)) {
-    console.warn("⚠️ WARNING: Using numeric ID instead of Firebase document ID");
+  // Handle navigation to exam details
+  const handleExamDetailsNavigation = (examId) => {
+    // Log detailed information for debugging
+    console.log("🔍 NAVIGATING TO EXAM:", examId);
+    console.log("📋 Exam type:", typeof examId);
+    console.log("📊 Exam ID length:", examId?.length);
     
-    // You can add a temporary mapping here for transition
-    const documentIdMapping = {
-      '1': 'UmG6yvkD0RJ3VFfc95b5', 
-      '2': '2TRW5fp36eYK6C0pC0Vm',
-      '3': 'yYqhU0cGKpNfK8bxQEdY', // Replace with the actual document ID for exam 3
-      '4': 'cisco-ccna',
-      '5': 'pmp',
-      '6': 'azure-fundamentals'
-    };
-    
-    if (documentIdMapping[examId]) {
-      console.log(`Translating numeric ID ${examId} to document ID ${documentIdMapping[examId]}`);
-      examId = documentIdMapping[examId]; // Use document ID instead
-    }
-  }
-  
-  try {
-    // Find the exam in allExamsData to get complete details
-    const examDetails = allExamsData.find(exam => exam.id === examId);
-    console.log("Found exam details:", examDetails);
-    
-    if (!examDetails) {
-      console.warn("Exam details not found in loaded data, creating placeholder");
+    // Check if this is a simple numeric ID
+    if (examId && examId.length === 1 && "123456789".includes(examId)) {
+      console.warn("⚠️ WARNING: Using numeric ID instead of Firebase document ID");
+      
+      // You can add a temporary mapping here for transition
+      const documentIdMapping = {
+        '1': 'UmG6yvkD0RJ3VFfc95b5', 
+        '2': '2TRW5fp36eYK6C0pC0Vm',
+        '3': 'yYqhU0cGKpNfK8bxQEdY',
+        '4': 'cisco-ccna',
+        '5': 'pmp',
+        '6': 'azure-fundamentals'
+      };
+      
+      if (documentIdMapping[examId]) {
+        console.log(`Translating numeric ID ${examId} to document ID ${documentIdMapping[examId]}`);
+        examId = documentIdMapping[examId]; // Use document ID instead
+      }
     }
     
-    // Create a safe object to store
-    const safeExamDetails = {
-      id: examId,
-      title: examDetails?.title || "Certification Exam",
-      ...(examDetails || {})
-    };
-    
-    // Store exam data in session storage for access on the details page
-    sessionStorage.setItem('currentExam', JSON.stringify(safeExamDetails));
-    console.log("Stored exam data in session storage:", safeExamDetails);
-    
-    // Navigate programmatically using the actual Firebase document ID
-    navigate(`/exam/${examId}/practice-tests`);
-  } catch (error) {
-    console.error("Error navigating to exam details:", error);
-    // Fallback navigation without extra data
-    navigate(`/exam/${examId}/practice-tests`);
-  }
-};
+    try {
+      // Find the exam in allExamsData to get complete details
+      const examDetails = allExamsData.find(exam => exam.id === examId);
+      console.log("Found exam details:", examDetails);
+      
+      if (!examDetails) {
+        console.warn("Exam details not found in loaded data, creating placeholder");
+      }
+      
+      // Create a safe object to store
+      const safeExamDetails = {
+        id: examId,
+        title: examDetails?.title || "Certification Exam",
+        ...(examDetails || {})
+      };
+      
+      // Store exam data in session storage for access on the details page
+      sessionStorage.setItem('currentExam', JSON.stringify(safeExamDetails));
+      console.log("Stored exam data in session storage:", safeExamDetails);
+      
+      // Navigate programmatically using the actual Firebase document ID
+      navigate(`/exam/${examId}/practice-tests`);
+    } catch (error) {
+      console.error("Error navigating to exam details:", error);
+      // Fallback navigation without extra data
+      navigate(`/exam/${examId}/practice-tests`);
+    }
+  };
+
+  // Handle click on purchased exam - always go to practice tests
+  const handlePurchasedExamClick = (exam) => {
+    console.log("Clicked on purchased exam:", exam);
+    handleExamDetailsNavigation(exam.id);
+  };
+
+  // Handle click on recent test
+  const handleRecentTestClick = (test) => {
+    // Navigate to the exam details with practice tests
+    handleExamDetailsNavigation(test.examId);
+  };
 
   // Generate a test name if not stored
   const getTestName = (attempt) => {
@@ -159,7 +168,6 @@ const handleExamDetailsNavigation = (examId) => {
           }
           
           // Find the exam details
-          //exam.id is exam's document ID and examID is Id in the exam not document ID
           let examDetails = allExams.find(exam => exam.id === examId);
           
           // If not found in loaded exams, try to fetch it directly
@@ -237,8 +245,8 @@ const handleExamDetailsNavigation = (examId) => {
         // Format the purchased exams
         const formattedExams = userPurchasedExams.map(exam => ({
           ...exam,
-          title: exam.title,
-          practiceTestsCount: 6, // Each exam has 6 practice tests
+          title: exam.title || 'Unknown Exam',
+          practiceTestsCount: exam.practiceTestsCount || 6, // Default to 6 practice tests if not specified
           description: exam.description || `Complete certification exam with practice tests`,
           lastActivity: exam.lastAccessDate || exam.purchaseDate
         }));
@@ -289,7 +297,12 @@ const handleExamDetailsNavigation = (examId) => {
         {purchasedExams.length > 0 ? (
           <div className="purchased-exams-grid">
             {purchasedExams.map(exam => (
-              <div key={exam.id} className="exam-card">
+              <div 
+                key={exam.id} 
+                className="exam-card"
+                onClick={() => handlePurchasedExamClick(exam)}
+                style={{ cursor: 'pointer' }}
+              >
                 <div className="exam-badge">Certification Exam</div>
                 <h3>{exam.title}</h3>
                 <div className="exam-info">
@@ -297,17 +310,16 @@ const handleExamDetailsNavigation = (examId) => {
                   <p><span className="info-label">Valid Until:</span> {new Date(exam.expiryDate).toLocaleDateString()}</p>
                   <p><span className="info-label">Exam ID:</span> {exam.id}</p>
                 </div>
-                <div className="exam-card-actions">
-                <button 
-  className="btn-primary btn-full"
-  onClick={() => {
-    console.log("🔘 Button clicked for exam:", exam);
-    console.log("🆔 Exam ID being passed:", exam.id);
-    handleExamDetailsNavigation(exam.id);
-  }}
->
-  View Practice Tests
-</button>
+                <div className="exam-card-actions" onClick={(e) => e.stopPropagation()}>
+                  <button 
+                    className="btn-primary btn-full"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleExamDetailsNavigation(exam.id);
+                    }}
+                  >
+                    View Practice Tests
+                  </button>
                 </div>
               </div>
             ))}
@@ -336,7 +348,12 @@ const handleExamDetailsNavigation = (examId) => {
         {recentTests.length > 0 ? (
           <div className="recent-tests">
             {recentTests.map(test => (
-              <div key={test.id} className="test-card">
+              <div 
+                key={test.id} 
+                className="test-card"
+                onClick={() => handleRecentTestClick(test)}
+                style={{ cursor: 'pointer' }}
+              >
                 <h3>{getTestName(test)}</h3>
                 <div className="test-info">
                   <p>Date: {formatDate(test.createdAt)}</p>
@@ -355,10 +372,13 @@ const handleExamDetailsNavigation = (examId) => {
                   </div>
                   <p>Correct: {test.correctAnswers} / {test.totalQuestions}</p>
                 </div>
-                <div className="test-card-actions">
+                <div className="test-card-actions" onClick={(e) => e.stopPropagation()}>
                   <button 
                     className="btn-secondary"
-                    onClick={() => handleExamDetailsNavigation(test.examId)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleExamDetailsNavigation(test.examId);
+                    }}
                   >
                     Exam Details
                   </button>
@@ -369,6 +389,7 @@ const handleExamDetailsNavigation = (examId) => {
                       examId: test.examId
                     }}
                     className="btn-primary"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     Retry Test
                   </Link>
@@ -400,4 +421,4 @@ const handleExamDetailsNavigation = (examId) => {
   );
 }
 
-export default Dashboard;
+export default Dashboard; 

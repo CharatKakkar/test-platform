@@ -52,7 +52,7 @@ function TestList({ user }) {
         <div className="test-list">
           {purchasedExams.map(exam => (
             <div key={exam.id} className="test-card">
-              <div className="exam-badge">Certification Exam</div>
+             
               <h2>{exam.title}</h2>
               <p>{exam.description}</p>
               
