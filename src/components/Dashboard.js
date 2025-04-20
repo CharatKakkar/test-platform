@@ -304,6 +304,7 @@ function Dashboard({ user }) {
                 style={{ cursor: 'pointer' }}
               >
                 <div className="exam-badge">Certification Exam</div>
+                <br/>
                 <h3>{exam.title}</h3>
                 <div className="exam-info">
                   <p><span className="info-label">Practice Tests:</span> {exam.practiceTestsCount || 6}</p>
