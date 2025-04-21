@@ -31,6 +31,49 @@ export const getAllExams = async () => {
   }
 };
 
+// Get featured exams for homepage
+export const getFeaturedExams = async (featuredCount = 6) => {
+  try {
+    // First try to get exams marked as featured
+    const featuredQuery = query(
+      collection(db, 'exams'),
+      where('featured', '==', true),
+      limit(featuredCount)
+    );
+    
+    const featuredSnapshot = await getDocs(featuredQuery);
+    let featuredExams = featuredSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // If we don't have enough featured exams, get the most popular ones
+    if (featuredExams.length < featuredCount) {
+      const popularQuery = query(
+        collection(db, 'exams'),
+        orderBy('popularity', 'desc'),
+        limit(featuredCount - featuredExams.length)
+      );
+      
+      const popularSnapshot = await getDocs(popularQuery);
+      const popularExams = popularSnapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        // Filter out any duplicates from the featured list
+        .filter(exam => !featuredExams.some(featured => featured.id === exam.id));
+      
+      featuredExams = [...featuredExams, ...popularExams];
+    }
+    
+    return featuredExams;
+  } catch (error) {
+    console.error('Error getting featured exams:', error);
+    throw error;
+  }
+};
+
 // Simplified getExamById function - uses direct document ID
 export const getExamById = async (examId) => {
   try {
@@ -93,7 +136,7 @@ export const updateExam = async (examId, examData) => {
 };
 
 // Practice Tests Collection Methods
-// Simplified getPracticeTestsByExamId function - uses direct document ID
+// Updated getPracticeTestsByExamId function to handle subcollection structure
 export const getPracticeTestsByExamId = async (examId) => {
   try {
     if (!examId) {
@@ -103,9 +146,17 @@ export const getPracticeTestsByExamId = async (examId) => {
     
     console.log(`Fetching practice tests for exam ${examId}`);
     
-    // Fetch practice tests directly with the document ID
+    // Try first with the subcollection structure
     const testsRef = collection(db, 'exams', examId, 'practiceTests');
-    const snapshot = await getDocs(testsRef);
+    let snapshot = await getDocs(testsRef);
+    
+    // If no tests found in subcollection, try the standalone collection with examId filter
+    if (snapshot.empty) {
+      console.log(`No practice tests found in subcollection for exam ${examId}, trying standalone collection`);
+      const practiceTestsRef = collection(db, 'practiceTests');
+      const q = query(practiceTestsRef, where('examId', '==', examId));
+      snapshot = await getDocs(q);
+    }
     
     const tests = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -113,7 +164,7 @@ export const getPracticeTestsByExamId = async (examId) => {
       ...doc.data()
     }));
     
-    console.log(`Found ${tests.length} practice tests`);
+    console.log(`Found ${tests.length} practice tests for exam ${examId}`);
     return tests;
   } catch (error) {
     console.error(`Error getting practice tests for exam ${examId}:`, error);
@@ -131,9 +182,16 @@ export const getPracticeTestById = async (examId, testId) => {
     
     console.log(`Fetching practice test with exam ID: ${examId}, test ID: ${testId}`);
     
-    // Fetch the practice test directly with the document IDs
+    // Try first with the subcollection structure
     const testRef = doc(db, 'exams', examId, 'practiceTests', testId);
-    const testDoc = await getDoc(testRef);
+    let testDoc = await getDoc(testRef);
+    
+    // If not found in subcollection, try the standalone collection
+    if (!testDoc.exists()) {
+      console.log(`Practice test not found in subcollection, trying standalone collection`);
+      const standaloneRef = doc(db, 'practiceTests', testId);
+      testDoc = await getDoc(standaloneRef);
+    }
     
     if (testDoc.exists()) {
       console.log(`Found practice test: ${testId}`);
@@ -194,12 +252,23 @@ export const getQuestionsByTestId = async (examId, testId) => {
     
     console.log(`Fetching questions for exam ${examId}, test ${testId}`);
     
-    // Fetch questions directly with the document IDs
+    // Try first with the nested subcollection structure
     const questionsRef = collection(db, 'exams', examId, 'practiceTests', testId, 'questions');
+    let q = query(questionsRef, orderBy('sequence', 'asc'));
+    let snapshot = await getDocs(q);
     
-    // Order by question number or sequence
-    const q = query(questionsRef, orderBy('sequence', 'asc'));
-    const snapshot = await getDocs(q);
+    // If no questions found in subcollection, try standalone with filters
+    if (snapshot.empty) {
+      console.log(`No questions found in subcollection, trying standalone collection`);
+      const standaloneRef = collection(db, 'questions');
+      q = query(
+        standaloneRef, 
+        where('examId', '==', examId),
+        where('testId', '==', testId),
+        orderBy('sequence', 'asc')
+      );
+      snapshot = await getDocs(q);
+    }
     
     const questions = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -208,7 +277,7 @@ export const getQuestionsByTestId = async (examId, testId) => {
       ...doc.data()
     }));
     
-    console.log(`Found ${questions.length} questions`);
+    console.log(`Found ${questions.length} questions for test ${testId}`);
     return questions;
   } catch (error) {
     console.error(`Error getting questions for test ${testId}:`, error);
@@ -276,6 +345,11 @@ export const getUserExamProgress = async (userId) => {
       const attemptData = attemptDoc.data();
       console.log(`Processing attempt ${attemptDoc.id}:`, attemptData);
       
+      // Skip if attempt was reset
+      if (attemptData.reset) {
+        return;
+      }
+      
       // Extract the relevant fields
       const examId = attemptData.examId;
       const testId = attemptData.testId;
@@ -324,6 +398,30 @@ export const getUserExamProgress = async (userId) => {
   } catch (error) {
     console.error('Error getting user progress:', error);
     return {};
+  }
+};
+
+// Specialized function to check if user owns a specific exam
+export const checkUserOwnsExam = async (userId, examId) => {
+  try {
+    if (!userId || !examId) {
+      console.log(`Missing required parameters in checkUserOwnsExam. userId: ${userId}, examId: ${examId}`);
+      return false;
+    }
+    
+    console.log(`Checking if user ${userId} owns exam ${examId}`);
+    
+    // Get all purchased exams for this user
+    const purchases = await getUserPurchasedExams(userId);
+    
+    // Check if examId is in the purchased exams
+    const owned = purchases.some(purchase => purchase.examId === examId);
+    
+    console.log(`User ${userId} ${owned ? 'owns' : 'does not own'} exam ${examId}`);
+    return owned;
+  } catch (error) {
+    console.error(`Error checking if user owns exam:`, error);
+    return false;
   }
 };
 
@@ -416,15 +514,27 @@ export const getUserPurchasedExams = async (userId) => {
     
     console.log(`Fetching purchased exams for user ${userId}`);
     
-    // Access the user purchases collection
+    // Try first with the dedicated purchasedExams collection
     const purchasesRef = collection(db, "purchasedExams", userId, "purchases");
-   
-    const q = query(
-      purchasesRef,
-      orderBy("purchaseDate", "desc")
-    );
+    let snapshot;
     
-    const snapshot = await getDocs(q);
+    try {
+      const q = query(
+        purchasesRef,
+        orderBy("purchaseDate", "desc")
+      );
+      snapshot = await getDocs(q);
+    } catch (error) {
+      console.log("Error fetching from purchasedExams collection:", error);
+      
+      // Try alternative collection if first approach fails
+      const alternativeRef = collection(db, "users", userId, "purchases");
+      const q = query(
+        alternativeRef,
+        orderBy("purchaseDate", "desc")
+      );
+      snapshot = await getDocs(q);
+    }
 
     console.log(`Found ${snapshot.docs.length} purchased exams`);
     
@@ -439,6 +549,61 @@ export const getUserPurchasedExams = async (userId) => {
   } catch (error) {
     console.error(`Error getting purchased exams for user ${userId}:`, error);
     return [];
+  }
+};
+
+// Get demo test for an exam (for non-owners)
+export const getExamDemoTest = async (examId) => {
+  try {
+    if (!examId) {
+      console.log("No examId provided to getExamDemoTest");
+      return null;
+    }
+    
+    console.log(`Fetching demo test for exam ${examId}`);
+    
+    // Check if there's a specific demo test marked in Firestore
+    const testsRef = collection(db, 'exams', examId, 'practiceTests');
+    const q = query(testsRef, where('isDemo', '==', true), limit(1));
+    let snapshot = await getDocs(q);
+    
+    // If no specific demo test is marked, just get the first practice test
+    if (snapshot.empty) {
+      console.log("No specific demo test found, getting first test");
+      const fallbackQuery = query(testsRef, limit(1));
+      snapshot = await getDocs(fallbackQuery);
+      
+      // If still empty, try the standalone collection
+      if (snapshot.empty) {
+        console.log("No tests in subcollection, trying standalone collection");
+        const practiceTestsRef = collection(db, 'practiceTests');
+        const fallbackQuery = query(
+          practiceTestsRef, 
+          where('examId', '==', examId),
+          limit(1)
+        );
+        snapshot = await getDocs(fallbackQuery);
+      }
+    }
+    
+    if (snapshot.empty) {
+      console.log(`No demo test found for exam ${examId}`);
+      return null;
+    }
+    
+    const demoTestDoc = snapshot.docs[0];
+    const demoTest = {
+      id: demoTestDoc.id,
+      examId,
+      ...demoTestDoc.data(),
+      isDemo: true // Mark as demo explicitly
+    };
+    
+    console.log(`Found demo test for exam ${examId}:`, demoTest.id);
+    return demoTest;
+  } catch (error) {
+    console.error(`Error getting demo test for exam ${examId}:`, error);
+    return null;
   }
 };
 

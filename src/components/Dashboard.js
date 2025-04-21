@@ -78,11 +78,11 @@ function Dashboard({ user }) {
       console.log("Stored exam data in session storage:", safeExamDetails);
       
       // Navigate programmatically using the actual Firebase document ID
-      navigate(`/exam/${examId}/practice-tests`);
+      navigate(`/exams/${examId}`);
     } catch (error) {
       console.error("Error navigating to exam details:", error);
       // Fallback navigation without extra data
-      navigate(`/exam/${examId}/practice-tests`);
+      navigate(`/exams  /${examId}/practice-tests`);
     }
   };
 
@@ -319,7 +319,7 @@ function Dashboard({ user }) {
                       handleExamDetailsNavigation(exam.id);
                     }}
                   >
-                    View Practice Tests
+                    Exam Details
                   </button>
                 </div>
               </div>
