@@ -4,11 +4,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import './Checkout.css';
 import purchasedExamsService from '../services/purchasedExamsService.js';
 
-
 const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, cartTotal = 0, onLogin }) => {
   const navigate = useNavigate();
   const [examResults, setExamResults] = useState(null);
   const [activeTab, setActiveTab] = useState(user ? 'checkout' : 'login');
+  const [loading, setLoading] = useState(false);
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [redirectingToStripe, setRedirectingToStripe] = useState(false);
   
   // Parse user's name into first and last name if available
   const parseUserName = () => {
@@ -31,10 +34,6 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
       firstName: firstName,
       lastName: lastName,
       email: user?.email || '',
-      paymentMethod: 'credit',
-      cardNumber: '',
-      cardExpiry: '',
-      cardCvc: '',
       couponCode: ''
     };
   });
@@ -56,10 +55,6 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
   }, [user]);
   
   const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [couponApplied, setCouponApplied] = useState(false);
-  const [orderComplete, setOrderComplete] = useState(false);
-  const [authError, setAuthError] = useState('');
 
   const coursePrice = cartTotal || 299.99;
   const discountAmount = couponApplied ? 50 : 0;
@@ -109,27 +104,6 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
       newErrors.email = 'Please enter a valid email address';
     }
     
-    // Validate payment details if credit card is selected
-    if (formData.paymentMethod === 'credit') {
-      if (!formData.cardNumber.trim()) {
-        newErrors.cardNumber = 'Card number is required';
-      } else if (!/^\d{16}$/.test(formData.cardNumber.replace(/\s/g, ''))) {
-        newErrors.cardNumber = 'Please enter a valid 16-digit card number';
-      }
-      
-      if (!formData.cardExpiry.trim()) {
-        newErrors.cardExpiry = 'Expiration date is required';
-      } else if (!/^\d{2}\/\d{2}$/.test(formData.cardExpiry)) {
-        newErrors.cardExpiry = 'Please use MM/YY format';
-      }
-      
-      if (!formData.cardCvc.trim()) {
-        newErrors.cardCvc = 'Security code is required';
-      } else if (!/^\d{3,4}$/.test(formData.cardCvc)) {
-        newErrors.cardCvc = 'Please enter a valid security code';
-      }
-    }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -147,42 +121,69 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
     }
   };
 
-// Inside the Checkout component
-
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  if (!validateForm()) return;
-  
-  setLoading(true);
-  
-  // Simulate API call to process payment
-  try {
-    // Process payment (in a real app, this would integrate with a payment processor)
-    await new Promise(resolve => setTimeout(resolve, 2000));
+  // Redirect to Stripe Checkout
+  const redirectToStripeCheckout = async () => {
+    if (!validateForm()) return;
     
-    // Mark exams as purchased in Firebase
-    if (cart && cart.length > 0) {
-      const purchaseSuccess = await purchasedExamsService.processPurchase(cart);
-      if (!purchaseSuccess) {
-        throw new Error('Failed to process purchase');
-      }
+    setLoading(true);
+    setRedirectingToStripe(true);
+    
+    try {
+      // Create a Stripe Checkout session
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: cart.map(item => ({
+            id: item.id,
+            name: item.title,
+            description: item.description || 'Exam preparation material',
+            amount: Math.round(item.price * 100), // Stripe requires amount in cents
+            quantity: item.quantity || 1
+          })),
+          customerEmail: formData.email,
+          customerName: `${formData.firstName} ${formData.lastName}`,
+          discount: couponApplied ? Math.round(discountAmount * 100) : 0,
+          metadata: {
+            userId: user?.uid || 'guest',
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            couponApplied: couponApplied.toString()
+          }
+        }),
+      });
+      
+      const session = await response.json();
+      
+      // Save checkout information to localStorage to retrieve after payment
+      localStorage.setItem('checkoutInfo', JSON.stringify({
+        cart: cart,
+        customerInfo: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email
+        },
+        couponApplied: couponApplied,
+        discountAmount: discountAmount,
+        finalTotal: parseFloat(finalTotal)
+      }));
+      
+      // Redirect to Stripe Checkout
+      window.location.href = session.url;
+      
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      setErrors(prev => ({
+        ...prev,
+        submit: 'Failed to start the checkout process. Please try again.'
+      }));
+      setRedirectingToStripe(false);
+      setLoading(false);
     }
-    
-    setOrderComplete(true);
-    
-    // Clear cart after successful checkout
-    clearCart();
-    localStorage.removeItem('examResults');
-  } catch (error) {
-    setErrors(prev => ({
-      ...prev,
-      submit: 'Payment processing failed. Please try again.'
-    }));
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleGoogleAuth = async (isLogin = true) => {
     setLoading(true);
@@ -198,69 +199,6 @@ const handleSubmit = async (e) => {
       setLoading(false);
     }
   };
-
-  if (orderComplete) {
-    return (
-      <div className="order-complete-container">
-        <div className="success-icon">
-          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-          </svg>
-        </div>
-        
-        <h1 className="text-2xl font-bold mb-2">Order Complete!</h1>
-        <p className="text-gray-600 mb-6">Thank you for your purchase</p>
-        
-        <div className="order-details">
-          <div className="order-section">
-            <p>
-              <span className="order-label">Name:</span> {formData.firstName} {formData.lastName}
-            </p>
-            <p>
-              <span className="order-label">Email:</span> {formData.email}
-            </p>
-            <p>
-              <span className="order-label">Order ID:</span> ORD-{Math.random().toString(36).substring(2, 10).toUpperCase()}
-            </p>
-          </div>
-          
-          <div className="order-section">
-            <h3 className="font-medium mb-3">Your Purchase</h3>
-            
-            {cart.map(item => (
-              <div key={item.id} className="flex justify-between mb-2">
-                <span>{item.title}</span>
-                <span>${item.price.toFixed(2)}</span>
-              </div>
-            ))}
-            
-            {couponApplied && (
-              <div className="flex justify-between mb-2 text-green-600">
-                <span>Discount (DEMO50)</span>
-                <span>-${discountAmount.toFixed(2)}</span>
-              </div>
-            )}
-            
-            <div className="flex justify-between font-bold mt-4 pt-4 border-t border-gray-200">
-              <span>Total</span>
-              <span>${finalTotal}</span>
-            </div>
-          </div>
-        </div>
-        
-        <p className="mb-6">
-          You will receive a confirmation email at {formData.email} with instructions to access your purchases.
-        </p>
-        
-        <Link 
-          to="/"
-          className="btn btn-primary"
-        >
-          Return to Homepage
-        </Link>
-      </div>
-    );
-  }
 
   // For non-logged in users, show auth forms
   if (!user) {
@@ -422,7 +360,7 @@ const handleSubmit = async (e) => {
     );
   }
 
-  // For logged-in users, show the regular checkout form
+  // For logged-in users, show the checkout form
   return (
     <div className="checkout-container">
       <h1 className="text-2xl font-bold mb-8 text-center">Complete Your Purchase</h1>
@@ -432,7 +370,7 @@ const handleSubmit = async (e) => {
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Your Information</h2>
             
-            <form onSubmit={handleSubmit}>
+            <div className="mb-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div className="form-group">
                   <label className="form-label" htmlFor="firstName">
@@ -479,107 +417,22 @@ const handleSubmit = async (e) => {
                 />
                 {errors.email && <p className="error-message">{errors.email}</p>}
               </div>
+            </div>
+            
+            <div className="border-t border-gray-200 pt-6 mb-6">
+              <h2 className="text-xl font-semibold mb-4">Payment Method</h2>
               
-              <div className="border-t border-gray-200 pt-6 mb-6">
-                <h2 className="text-xl font-semibold mb-4">Payment Method</h2>
+              <div className="payment-methods-info mb-6">
+                <p className="text-gray-600 mb-4">
+                  You'll be redirected to Stripe's secure payment page to complete your purchase.
+                </p>
                 
-                <div className="payment-methods">
-                  <div className="payment-option">
-                    <input
-                      id="credit"
-                      name="paymentMethod"
-                      type="radio"
-                      value="credit"
-                      checked={formData.paymentMethod === 'credit'}
-                      onChange={handleInputChange}
-                      className="payment-radio"
-                    />
-                    <label htmlFor="credit" className="text-gray-700">
-                      Credit / Debit Card
-                    </label>
-                  </div>
-                  
-                  <div className="payment-option">
-                    <input
-                      id="paypal"
-                      name="paymentMethod"
-                      type="radio"
-                      value="paypal"
-                      checked={formData.paymentMethod === 'paypal'}
-                      onChange={handleInputChange}
-                      className="payment-radio"
-                    />
-                    <label htmlFor="paypal" className="text-gray-700">
-                      PayPal
-                    </label>
-                  </div>
+                <div className="payment-methods-icons flex justify-center space-x-3">
+                  <img src="/api/placeholder/40/25" alt="Visa" className="h-8" />
+                  <img src="/api/placeholder/40/25" alt="Mastercard" className="h-8" />
+                  <img src="/api/placeholder/40/25" alt="Amex" className="h-8" />
+                  <img src="/api/placeholder/40/25" alt="Discover" className="h-8" />
                 </div>
-                
-                {formData.paymentMethod === 'credit' && (
-                  <div className="payment-details">
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="cardNumber">
-                        Card Number
-                      </label>
-                      <input
-                        id="cardNumber"
-                        name="cardNumber"
-                        type="text"
-                        maxLength="19"
-                        placeholder="1234 5678 9012 3456"
-                        value={formData.cardNumber}
-                        onChange={handleInputChange}
-                        className={`form-input ${errors.cardNumber ? 'error' : ''}`}
-                      />
-                      {errors.cardNumber && <p className="error-message">{errors.cardNumber}</p>}
-                    </div>
-                    
-                    <div className="card-row">
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="cardExpiry">
-                          Expiry Date (MM/YY)
-                        </label>
-                        <input
-                          id="cardExpiry"
-                          name="cardExpiry"
-                          type="text"
-                          placeholder="MM/YY"
-                          maxLength="5"
-                          value={formData.cardExpiry}
-                          onChange={handleInputChange}
-                          className={`form-input ${errors.cardExpiry ? 'error' : ''}`}
-                        />
-                        {errors.cardExpiry && <p className="error-message">{errors.cardExpiry}</p>}
-                      </div>
-                      
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="cardCvc">
-                          CVC
-                        </label>
-                        <input
-                          id="cardCvc"
-                          name="cardCvc"
-                          type="text"
-                          placeholder="123"
-                          maxLength="4"
-                          value={formData.cardCvc}
-                          onChange={handleInputChange}
-                          className={`form-input ${errors.cardCvc ? 'error' : ''}`}
-                        />
-                        {errors.cardCvc && <p className="error-message">{errors.cardCvc}</p>}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {formData.paymentMethod === 'paypal' && (
-                  <div className="payment-details text-center">
-                    <p className="mb-4">You will be redirected to PayPal to complete your purchase after submission.</p>
-                    <div className="flex justify-center">
-                      <img src="/api/placeholder/120/40" alt="PayPal" className="h-10" />
-                    </div>
-                  </div>
-                )}
               </div>
               
               {errors.submit && (
@@ -589,13 +442,14 @@ const handleSubmit = async (e) => {
               )}
               
               <button
-                type="submit"
-                disabled={loading}
+                type="button"
+                onClick={redirectToStripeCheckout}
+                disabled={loading || redirectingToStripe}
                 className="btn btn-primary btn-full"
               >
-                {loading ? 'Processing...' : 'Complete Purchase'}
+                {redirectingToStripe ? 'Redirecting to secure payment...' : loading ? 'Processing...' : 'Proceed to Payment'}
               </button>
-            </form>
+            </div>
           </div>
         </div>
         
@@ -691,13 +545,13 @@ const handleSubmit = async (e) => {
             <div className="border-t border-gray-200 mt-4 pt-4">
               <h3 className="font-semibold mb-3">Secure Checkout</h3>
               <p className="text-sm text-gray-600 mb-4">
-                Your payment information is processed securely. We do not store credit card details.
+                Your payment information is processed securely through Stripe. We do not store credit card details.
               </p>
               <div className="flex justify-center space-x-2">
                 <img src="/api/placeholder/40/25" alt="Visa" className="h-8" />
                 <img src="/api/placeholder/40/25" alt="Mastercard" className="h-8" />
                 <img src="/api/placeholder/40/25" alt="Amex" className="h-8" />
-                <img src="/api/placeholder/40/25" alt="PayPal" className="h-8" />
+                <img src="/api/placeholder/40/25" alt="Discover" className="h-8" />
               </div>
             </div>
           </div>

@@ -14,6 +14,25 @@
         {
           "source": "**",
           "destination": "/index.html"
+        },{
+          "source": "/api/create-checkout-session",
+          "function": "createCheckoutSession"
+        },
+        {
+          "source": "/api/verify-session",
+          "function": "verifySession"
+        },
+        {
+          "source": "/api/check-payment-status",
+          "function": "checkPaymentStatus"
+        },
+        {
+          "source": "/api/get-session",
+          "function": "getSession"
+        },
+        {
+          "source": "/api/stripe-webhook",
+          "function": "stripeWebhook"
         }
       ]
     }
