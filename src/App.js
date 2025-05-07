@@ -23,6 +23,10 @@ import Cart from './components/Cart.js';
 import Order from './components/Order.js';
 import PurchasedExams from './components/PurchasedExams.js';
 
+// New components for payment handling
+import PaymentStatusRouter from './components/PaymentStatusRouter';
+import ThankYouPage from './pages/ThankYouPage';
+
 // Firebase Services
 // Authentication methods for App.js
 import { 
@@ -183,52 +187,61 @@ function App() {
     }
   };
   
+  // Handle successful payment
+  const handlePaymentSuccess = (sessionData) => {
+    // Clear the cart after successful payment
+    handleClearCart();
+    
+    // Show success notification
+    showNotification('Payment completed successfully! Thank you for your purchase.', 'success');
+  };
+  
   // Login handler - supports both email and Google authentication
-const handleLogin = async (email, password, isGoogleAuth = false) => {
-  try {
-    let userData;
-    
-    if (isGoogleAuth) {
-      // Use Google authentication
-      userData = await authenticateWithGoogle();
-    } else {
-      // Use email/password authentication
-      userData = await loginWithEmail(email, password);
+  const handleLogin = async (email, password, isGoogleAuth = false) => {
+    try {
+      let userData;
+      
+      if (isGoogleAuth) {
+        // Use Google authentication
+        userData = await authenticateWithGoogle();
+      } else {
+        // Use email/password authentication
+        userData = await loginWithEmail(email, password);
+      }
+      
+      setUser(userData);
+      setIsAuthenticated(true);
+      showNotification('Login successful');
+      return userData;
+    } catch (error) {
+      showNotification(error.message, 'error');
+      throw error;
     }
-    
-    setUser(userData);
-    setIsAuthenticated(true);
-    showNotification('Login successful');
-    return userData;
-  } catch (error) {
-    showNotification(error.message, 'error');
-    throw error;
-  }
-};
+  };
 
-
-// Register handler - supports both email and Google authentication 
-const handleRegister = async (name, email, password, isGoogleAuth = false) => {
-  try {
-    let userData;
-    
-    if (isGoogleAuth) {
-      // Use Google authentication for registration
-      userData = await authenticateWithGoogle();
-    } else {
-      // Use email/password registration
-      userData = await registerWithEmail(name, email, password);
+  // Register handler - supports both email and Google authentication 
+  const handleRegister = async (name, email, password, isGoogleAuth = false) => {
+    try {
+      let userData;
+      
+      if (isGoogleAuth) {
+        // Use Google authentication for registration
+        userData = await authenticateWithGoogle();
+      } else {
+        // Use email/password registration
+        userData = await registerWithEmail(name, email, password);
+      }
+      
+      setUser(userData);
+      setIsAuthenticated(true);
+      showNotification('Registration successful');
+      return userData;
+    } catch (error) {
+      showNotification(error.message, 'error');
+      throw error;
     }
-    
-    setUser(userData);
-    setIsAuthenticated(true);
-    showNotification('Registration successful');
-    return userData;
-  } catch (error) {
-    showNotification(error.message, 'error');
-    throw error;
-  }
-};
+  };
+
   // Calculate cart total
   const getCartTotal = () => {
     return cart.reduce((total, item) => {
@@ -292,7 +305,6 @@ const handleRegister = async (name, email, password, isGoogleAuth = false) => {
               <TestDetails user={user} /> : 
               <Navigate to="/login" />
             } />
-            // Add this route within the Routes component in the return statement
             <Route path="/purchased" element={isAuthenticated ? 
               <PurchasedExams user={user} /> : 
               <Navigate to="/login" />
@@ -303,7 +315,6 @@ const handleRegister = async (name, email, password, isGoogleAuth = false) => {
             } />
             <Route path="/order" element={<Order isAuthenticated={isAuthenticated} user={user} />} />
            
-            
             {/* Updated exam routes */}
             <Route path="/exams" element={
               <EnhancedHomePage
@@ -325,11 +336,12 @@ const handleRegister = async (name, email, password, isGoogleAuth = false) => {
               />
             } />
             <Route path="/demo/:examId" element={<DemoExam />} />
-              {/* New routes for the enhanced practice test */}
-  <Route path="/practice-test/:testId" element={isAuthenticated ? 
-    <EnhancedPracticeTest user={user} /> : 
-    <Navigate to="/login" />
-  } />
+            
+            {/* Enhanced practice test route */}
+            <Route path="/practice-test/:testId" element={isAuthenticated ? 
+              <EnhancedPracticeTest user={user} /> : 
+              <Navigate to="/login" />
+            } />
 
             <Route path="/cart" element={
               <Cart 
@@ -358,10 +370,27 @@ const handleRegister = async (name, email, password, isGoogleAuth = false) => {
                 onLogin={login}
               /> 
             } />
-            {/* <Route path="/profile" element={isAuthenticated ? 
-              <Profile user={user} /> : 
-              <Navigate to="/login" />
-            } /> */}
+
+            {/* Payment Success/Failure Routes */}
+            <Route path="/payment/verify" element={
+              <PaymentStatusRouter 
+                successRedirect="/thank-you" 
+                failureRedirect="/payment-failed"
+                pendingRedirect="/payment-pending"
+              />
+            } />
+            <Route path="/payment/success" element={
+              <PaymentStatusRouter 
+                successRedirect="/thank-you" 
+              />
+            } />     
+            {/* Final Destination Pages */}
+            <Route path="/thank-you" element={
+              <ThankYouPage 
+                onComplete={handlePaymentSuccess}
+                user={user}
+              />
+            } />
           </Routes>
         </main>
         <Footer />

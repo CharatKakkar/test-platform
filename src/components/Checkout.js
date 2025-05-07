@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './Checkout.css';
-import purchasedExamsService from '../services/purchasedExamsService.js';
+import stripeService from '../services/stripeService.js'; // Import the stripeService
 
 const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, cartTotal = 0, onLogin }) => {
   const navigate = useNavigate();
@@ -121,7 +121,7 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
     }
   };
 
-  // Redirect to Stripe Checkout
+  // Redirect to Stripe Checkout - UPDATED to use stripeService
   const redirectToStripeCheckout = async () => {
     if (!validateForm()) return;
     
@@ -129,34 +129,40 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
     setRedirectingToStripe(true);
     
     try {
-      // Create a Stripe Checkout session
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          items: cart.map(item => ({
-            id: item.id,
-            name: item.title,
-            description: item.description || 'Exam preparation material',
-            amount: Math.round(item.price * 100), // Stripe requires amount in cents
-            quantity: item.quantity || 1
-          })),
-          customerEmail: formData.email,
-          customerName: `${formData.firstName} ${formData.lastName}`,
-          discount: couponApplied ? Math.round(discountAmount * 100) : 0,
-          metadata: {
-            userId: user?.uid || 'guest',
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            email: formData.email,
-            couponApplied: couponApplied.toString()
-          }
-        }),
-      });
+      // Create customer info object
+      const customerInfo = {
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName
+      };
       
-      const session = await response.json();
+      // Calculate discount amount in dollars
+      const discountAmountDollars = couponApplied ? discountAmount : 0;
+      
+      // Additional metadata
+      const metadata = {
+        userId: user?.uid || 'guest',
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        couponApplied: couponApplied.toString()
+      };
+      
+      // Use stripeService to create checkout session
+      const response = await stripeService.createCheckoutSession(
+        // Format cart items for the service
+        cart.map(item => ({
+          id: item.id,
+          title: item.title, // stripeService expects 'title' 
+          description: item.description || 'Exam preparation material',
+          price: item.price, // stripeService will convert to cents
+          stripePrice: item.stripePrice,
+          quantity: item.quantity || 1
+        })),
+        customerInfo,
+        discountAmountDollars,
+        metadata
+      );
       
       // Save checkout information to localStorage to retrieve after payment
       localStorage.setItem('checkoutInfo', JSON.stringify({
@@ -168,17 +174,25 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
         },
         couponApplied: couponApplied,
         discountAmount: discountAmount,
-        finalTotal: parseFloat(finalTotal)
+        finalTotal: parseFloat(finalTotal),
+        sessionId: response.sessionId // Store the session ID
       }));
       
-      // Redirect to Stripe Checkout
-      window.location.href = session.url;
+      console.log('Redirecting to:', response.url);
+      
+      // Check if we have a valid URL before redirecting
+      if (response && response.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = response.url;
+      } else {
+        throw new Error('Invalid response from checkout service: Missing URL');
+      }
       
     } catch (error) {
       console.error('Error creating checkout session:', error);
       setErrors(prev => ({
         ...prev,
-        submit: 'Failed to start the checkout process. Please try again.'
+        submit: `Failed to start the checkout process: ${error.message || 'Please try again'}`
       }));
       setRedirectingToStripe(false);
       setLoading(false);

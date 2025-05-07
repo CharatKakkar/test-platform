@@ -1,39 +1,45 @@
 {
-    "firestore": {
-      "rules": "firestore.rules",
-      "indexes": "firestore.indexes.json"
-    },
-    "hosting": {
-      "public": "public",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "rewrites": [
-        {
-          "source": "**",
-          "destination": "/index.html"
-        },{
-          "source": "/api/create-checkout-session",
-          "function": "createCheckoutSession"
-        },
-        {
-          "source": "/api/verify-session",
-          "function": "verifySession"
-        },
-        {
-          "source": "/api/check-payment-status",
-          "function": "checkPaymentStatus"
-        },
-        {
-          "source": "/api/get-session",
-          "function": "getSession"
-        },
-        {
-          "source": "/api/stripe-webhook",
-          "function": "stripeWebhook"
-        }
-      ]
-    }
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs18",
+    "codebase": "default"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/api/create-checkout-session",
+        "function": "api"
+      },
+      {
+        "source": "/api/verify-session",
+        "function": "api"
+      },
+      {
+        "source": "/api/check-payment-status",
+        "function": "api"
+      },
+      {
+        "source": "/api/get-session",
+        "function": "api"
+      },
+      {
+        "source": "/api/stripe-webhook",
+        "function": "api"
+      }
+    ]
   }
+}

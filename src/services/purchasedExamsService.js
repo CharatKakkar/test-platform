@@ -62,7 +62,7 @@ export const addPurchasedExam = async (examData) => {
     
     // Store exam data
     const examToStore = {
-      examId: examData.id,
+      examId: examData.examId,
       title: examData.title,
       category: examData.category,
       price: examData.price || 9.99,
@@ -134,7 +134,7 @@ export const processPurchase = async (cartItems) => {
     
     // Add each cart item to purchased exams
     for (const item of cartItems) {
-      await addPurchasedExam(item);
+      //await addPurchasedExam(item);
     }
     
     return true;
