@@ -32,13 +32,6 @@ export const createCheckoutSession = async (items, customerInfo, discount = 0, m
       throw new Error("User is not authenticated");
     }
 
-    // Format line items for Stripe checkout (using price IDs)
-    const lineItems = items.map(item => ({
-      price: item.stripePrice, // Use stripePrice for Stripe checkout
-      quantity: item.quantity || 1
-    }));
-
-    console.log(userId)
     // Create a document in the checkout_sessions subcollection
     const checkoutSessionRef = collection(
       db,
@@ -49,7 +42,10 @@ export const createCheckoutSession = async (items, customerInfo, discount = 0, m
     
     // Create the checkout session document with required fields
     const docRef = await addDoc(checkoutSessionRef, {
-      price: items[0]?.stripePrice, // Use first item's stripePrice
+      line_items: items.map(item => ({
+        price: item.stripePrice,
+        quantity: item.quantity || 1
+      })),
       mode: 'payment', // or 'subscription' for recurring payments
       success_url: `${window.location.origin}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${window.location.origin}/payment/failed`,
@@ -149,6 +145,11 @@ export const verifyCheckoutSession = async (sessionId) => {
         console.error("Error parsing itemsJson:", e);
       }
     }
+
+    // Calculate total amount from purchased items
+    const totalAmount = purchasedItems.reduce((sum, item) => {
+      return sum + (item.price * (item.quantity || 1));
+    }, 0);
     
     // Create purchases for each item
     const purchases = [];
@@ -215,7 +216,7 @@ export const verifyCheckoutSession = async (sessionId) => {
       },
       discountApplied: metadata.couponApplied === "true",
       discountAmount: parseFloat(metadata.discountAmount || "0"),
-      amount: sessionData.amount_total,
+      amount: totalAmount, // Use calculated total amount
       metadata: metadata,
       purchasedItems: purchasedItems
     };

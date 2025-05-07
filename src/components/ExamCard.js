@@ -17,7 +17,7 @@ const ExamCard = ({ exam, isOwned, isInCart, onAddToCart, onRemoveFromCart }) =>
     };
     
     const bgColor = colors[category] || '#333';
-    const text = exam ? exam.title.split(' ').map(word => word[0]).join('').substring(0, 3) : 'EX';
+    const text = exam?.title ? exam.title.split(' ').map(word => word[0]).join('').substring(0, 3) : 'EX';
     
     return `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="160" height="100" viewBox="0 0 160 100"%3E%3Crect width="160" height="100" fill="${bgColor.replace('#', '%23')}"/%3E%3Ctext x="80" y="50" font-family="Arial" font-size="18" text-anchor="middle" fill="white"%3E${text}%3C/text%3E%3C/svg%3E`;
   };

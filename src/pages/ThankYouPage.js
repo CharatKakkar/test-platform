@@ -66,12 +66,12 @@ const ThankYouPage = () => {
           </div>
           <div className="info-row">
             <span>Order Total:</span>
-            <span>${orderDetails.amount || '0.00'}</span>
+            <span>${(orderDetails.amount || 0).toFixed(2)}</span>
           </div>
           {orderDetails.discountApplied && (
             <div className="info-row discount">
               <span>Discount Applied:</span>
-              <span>${orderDetails.discountAmount}</span>
+              <span>-${orderDetails.discountAmount.toFixed(2)}</span>
             </div>
           )}
           {orderDetails.customer && (
@@ -107,7 +107,7 @@ const ThankYouPage = () => {
                   </div>
                   <div className="detail-row">
                     <span>Price:</span>
-                    <span>${item.price}</span>
+                    <span>${item.price.toFixed(2)}</span>
                   </div>
                   <div className="detail-row">
                     <span>Valid Until:</span>

@@ -218,39 +218,18 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
   if (!user) {
     return (
       <div className="checkout-container">
-        <h1 className="text-2xl font-bold mb-6 text-center">Complete Your Purchase</h1>
+        <div className="checkout-header">
+          <h1>Complete Your Purchase</h1>
+          <p className="checkout-subtitle">Sign in to continue with your purchase</p>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-          {/* Auth forms - 3 columns */}
-          <div className="md:col-span-3 bg-white rounded-lg shadow-md p-6">
-            <div className="auth-tabs">
+        <div className="checkout-grid">
+          <div className="checkout-main">
+            <div className="auth-card">
               <button 
-                className={`auth-tab ${activeTab === 'login' ? 'active' : ''}`}
-                onClick={() => setActiveTab('login')}
-              >
-                Login
-              </button>
-              <button 
-                className={`auth-tab ${activeTab === 'register' ? 'active' : ''}`}
-                onClick={() => setActiveTab('register')}
-              >
-                Register
-              </button>
-            </div>
-            
-            {authError && (
-              <div className="bg-red-50 text-red-600 p-4 mb-4 rounded-md">
-                {authError}
-              </div>
-            )}
-            
-            {/* Google Login Button for either tab */}
-            <div className="social-auth-container mt-6 mb-4">
-              <button 
-                onClick={() => handleGoogleAuth(activeTab === 'login')} 
+                onClick={handleGoogleAuth} 
                 className="google-auth-btn"
                 disabled={loading}
-                type="button"
               >
                 <div className="google-icon">
                   <svg viewBox="0 0 24 24" width="18" height="18">
@@ -258,114 +237,78 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
                     fill="#4285F4"/>
                   </svg>
                 </div>
-                <span>{loading ? 'Processing...' : activeTab === 'login' ? 'Continue with Google' : 'Sign up with Google'}</span>
+                <span>{loading ? 'Processing...' : 'Continue with Google'}</span>
               </button>
-            </div>
-            
-            <div className="auth-info-text text-center mb-4 text-gray-600">
-              <p>{activeTab === 'login' ? 'Login with your Google account to continue to checkout.' : 'Create an account with Google to checkout faster in the future.'}</p>
+              
+              {authError && (
+                <div className="auth-error">
+                  {authError}
+                </div>
+              )}
+              
+              <div className="auth-info">
+                <p>Sign in with your Google account to continue to checkout.</p>
+              </div>
             </div>
           </div>
           
-          {/* Order summary - 2 columns */}
-          <div className="md:col-span-2">
-            <div className="order-summary">
-              <h2 className="summary-title">Order Summary</h2>
+          <div className="checkout-sidebar">
+            <div className="order-summary-card">
+              <h2>Order Summary</h2>
               
-              {cart.length > 0 ? (
-                <div>
-                  {cart.map(item => (
-                    <div key={item.id} className="summary-item">
-                      <span className="summary-item-title">{item.title}</span>
-                      <span className="summary-item-price">${item.price.toFixed(2)}</span>
+              <div className="cart-items">
+                {cart.map(item => (
+                  <div key={item.id} className="cart-item">
+                    <div className="item-details">
+                      <span className="item-title">{item.title}</span>
                     </div>
-                  ))}
-                  
-                  {couponApplied && (
-                    <div className="summary-item summary-discount">
-                      <span>Discount (DEMO50)</span>
-                      <span>-${discountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  
-                  <div className="summary-total">
-                    <span>Total</span>
-                    <span>${finalTotal}</span>
+                    <span className="item-price">${item.price.toFixed(2)}</span>
                   </div>
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-gray-500">Your cart is empty</p>
-                  <Link to="/exams" className="text-blue-600 font-medium mt-2 inline-block">Browse Exams</Link>
+                ))}
+              </div>
+              
+              {couponApplied && (
+                <div className="discount-row">
+                  <span>Discount (DEMO50)</span>
+                  <span>-${discountAmount.toFixed(2)}</span>
                 </div>
               )}
               
-              <div className="coupon-container">
-                <input
-                  type="text"
-                  name="couponCode"
-                  placeholder="Coupon Code"
-                  value={formData.couponCode}
-                  onChange={handleInputChange}
-                  className={`coupon-input ${errors.couponCode ? 'error' : ''}`}
-                />
-                <button
-                  type="button"
-                  onClick={applyCoupon}
-                  disabled={couponApplied}
-                  className={`coupon-button ${couponApplied ? 'applied' : ''}`}
-                >
-                  {couponApplied ? 'Applied' : 'Apply'}
-                </button>
-                {errors.couponCode && <p className="error-message">{errors.couponCode}</p>}
-                {couponApplied && <p className="text-green-600 text-sm mt-1">Coupon applied successfully!</p>}
-                <p className="text-gray-500 text-xs mt-2">Try code "DEMO50" for $50 off</p>
+              <div className="total-row">
+                <span>Total</span>
+                <span>${finalTotal}</span>
               </div>
               
-              {examResults && (
-                <div className="score-box">
-                  <h3 className="score-title">Your Demo Exam Score</h3>
-                  <p className="score-value">
-                    Score: {examResults.score} out of {examResults.totalQuestions} ({examResults.percentage}%)
-                  </p>
-                  <div className="score-bar">
-                    <div 
-                      className={`score-progress ${examResults.percentage >= 70 ? 'pass' : 'fail'}`}
-                      style={{ width: `${examResults.percentage}%` }}
-                    ></div>
-                  </div>
-                  <p className="score-message">
-                    {examResults.percentage >= 70 
-                      ? 'Great job! You are ready for the full course.'
-                      : 'The full course will help you improve your skills!'}
-                  </p>
+              <div className="coupon-section">
+                <div className="coupon-input-group">
+                  <input
+                    type="text"
+                    name="couponCode"
+                    placeholder="Enter coupon code"
+                    value={formData.couponCode}
+                    onChange={handleInputChange}
+                    className={errors.couponCode ? 'error' : ''}
+                  />
+                  <button
+                    onClick={applyCoupon}
+                    disabled={couponApplied}
+                    className={couponApplied ? 'applied' : ''}
+                  >
+                    {couponApplied ? 'Applied' : 'Apply'}
+                  </button>
                 </div>
-              )}
-              
-              <div className="benefits-list">
-                <h3 className="font-semibold mb-3">What You'll Get</h3>
-                <div className="benefit-item">
-                  <span className="benefit-icon">✓</span>
-                  <span>Full Access to All Purchased Content</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">✓</span>
-                  <span>Certificate of Completion</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">✓</span>
-                  <span>1-Year Access to All Materials</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">✓</span>
-                  <span>Community Forum Access</span>
-                </div>
+                {errors.couponCode && <p className="error-text">{errors.couponCode}</p>}
+                {couponApplied && <p className="success-text">Coupon applied successfully!</p>}
               </div>
               
-              <div className="mt-6 text-sm text-gray-600">
-                <p>
-                  By completing your purchase, you agree to our <a href="#" className="text-blue-600 hover:underline">Terms of Service</a> and <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>.
-                </p>
+              <div className="benefits-section">
+                <h3>What's Included</h3>
+                <ul className="benefits-list">
+                  <li>✓ Full Access to All Purchased Content</li>
+                  <li>✓ Certificate of Completion</li>
+                  <li>✓ 1-Year Access to All Materials</li>
+                  <li>✓ Community Forum Access</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -377,89 +320,74 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
   // For logged-in users, show the checkout form
   return (
     <div className="checkout-container">
-      <h1 className="text-2xl font-bold mb-8 text-center">Complete Your Purchase</h1>
+      <div className="checkout-header">
+        <h1>Complete Your Purchase</h1>
+        <p className="checkout-subtitle">Review your order and proceed to payment</p>
+      </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">Your Information</h2>
-            
-            <div className="mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="checkout-grid">
+        <div className="checkout-main">
+          <div className="checkout-card">
+            <div className="card-section">
+              <h2>Contact Information</h2>
+              <div className="form-grid">
                 <div className="form-group">
-                  <label className="form-label" htmlFor="firstName">
-                    First Name
-                  </label>
+                  <label htmlFor="firstName">First Name</label>
                   <input
                     id="firstName"
                     name="firstName"
                     type="text"
                     value={formData.firstName}
                     onChange={handleInputChange}
-                    className={`form-input ${errors.firstName ? 'error' : ''}`}
+                    className={errors.firstName ? 'error' : ''}
                   />
-                  {errors.firstName && <p className="error-message">{errors.firstName}</p>}
+                  {errors.firstName && <p className="error-text">{errors.firstName}</p>}
                 </div>
                 
                 <div className="form-group">
-                  <label className="form-label" htmlFor="lastName">
-                    Last Name
-                  </label>
+                  <label htmlFor="lastName">Last Name</label>
                   <input
                     id="lastName"
                     name="lastName"
                     type="text"
                     value={formData.lastName}
                     onChange={handleInputChange}
-                    className={`form-input ${errors.lastName ? 'error' : ''}`}
+                    className={errors.lastName ? 'error' : ''}
                   />
-                  {errors.lastName && <p className="error-message">{errors.lastName}</p>}
+                  {errors.lastName && <p className="error-text">{errors.lastName}</p>}
                 </div>
               </div>
               
               <div className="form-group">
-                <label className="form-label" htmlFor="email">
-                  Email Address
-                </label>
+                <label htmlFor="email">Email Address</label>
                 <input
                   id="email"
                   name="email"
                   type="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className={`form-input ${errors.email ? 'error' : ''}`}
+                  className={errors.email ? 'error' : ''}
                 />
-                {errors.email && <p className="error-message">{errors.email}</p>}
+                {errors.email && <p className="error-text">{errors.email}</p>}
               </div>
             </div>
             
-            <div className="border-t border-gray-200 pt-6 mb-6">
-              <h2 className="text-xl font-semibold mb-4">Payment Method</h2>
-              
-              <div className="payment-methods-info mb-6">
-                <p className="text-gray-600 mb-4">
-                  You'll be redirected to Stripe's secure payment page to complete your purchase.
-                </p>
-                
-                <div className="payment-methods-icons flex justify-center space-x-3">
-                  <img src="/api/placeholder/40/25" alt="Visa" className="h-8" />
-                  <img src="/api/placeholder/40/25" alt="Mastercard" className="h-8" />
-                  <img src="/api/placeholder/40/25" alt="Amex" className="h-8" />
-                  <img src="/api/placeholder/40/25" alt="Discover" className="h-8" />
-                </div>
+            <div className="card-section">
+              <h2>Payment Method</h2>
+              <div className="payment-info">
+                <p>You'll be redirected to Stripe's secure payment page to complete your purchase.</p>
               </div>
               
               {errors.submit && (
-                <div className="mb-6 p-3 bg-red-50 text-red-600 rounded-md">
+                <div className="error-banner">
                   {errors.submit}
                 </div>
               )}
               
               <button
-                type="button"
                 onClick={redirectToStripeCheckout}
                 disabled={loading || redirectingToStripe}
-                className="btn btn-primary btn-full"
+                className="checkout-button"
               >
                 {redirectingToStripe ? 'Redirecting to secure payment...' : loading ? 'Processing...' : 'Proceed to Payment'}
               </button>
@@ -467,106 +395,63 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
           </div>
         </div>
         
-        <div className="lg:col-span-1">
-          <div className="order-summary mb-6">
-            <h2 className="summary-title">Order Summary</h2>
+        <div className="checkout-sidebar">
+          <div className="order-summary-card">
+            <h2>Order Summary</h2>
             
-            <div>
+            <div className="cart-items">
               {cart.map(item => (
-                <div key={item.id} className="summary-item">
-                  <span className="summary-item-title">{item.title}</span>
-                  <span className="summary-item-price">${item.price.toFixed(2)}</span>
+                <div key={item.id} className="cart-item">
+                  <div className="item-details">
+                    <span className="item-title">{item.title}</span>
+                  </div>
+                  <span className="item-price">${item.price.toFixed(2)}</span>
                 </div>
               ))}
-              
-              {couponApplied && (
-                <div className="summary-item summary-discount">
-                  <span>Discount (DEMO50)</span>
-                  <span>-${discountAmount.toFixed(2)}</span>
-                </div>
-              )}
-              
-              <div className="summary-total">
-                <span>Total</span>
-                <span>${finalTotal}</span>
-              </div>
             </div>
             
-            <div className="coupon-container">
-              <input
-                type="text"
-                name="couponCode"
-                placeholder="Coupon Code"
-                value={formData.couponCode}
-                onChange={handleInputChange}
-                className={`coupon-input ${errors.couponCode ? 'error' : ''}`}
-              />
-              <button
-                type="button"
-                onClick={applyCoupon}
-                disabled={couponApplied}
-                className={`coupon-button ${couponApplied ? 'applied' : ''}`}
-              >
-                {couponApplied ? 'Applied' : 'Apply'}
-              </button>
-              {errors.couponCode && <p className="error-message">{errors.couponCode}</p>}
-              {couponApplied && <p className="text-green-600 text-sm mt-1">Coupon applied successfully!</p>}
-              <p className="text-gray-500 text-xs mt-2">Try code "DEMO50" for $50 off</p>
-            </div>
-            
-            {examResults && (
-              <div className="score-box">
-                <h3 className="score-title">Your Demo Exam Score</h3>
-                <p className="score-value">
-                  Score: {examResults.score} out of {examResults.totalQuestions} ({examResults.percentage}%)
-                </p>
-                <div className="score-bar">
-                  <div 
-                    className={`score-progress ${examResults.percentage >= 70 ? 'pass' : 'fail'}`}
-                    style={{ width: `${examResults.percentage}%` }}
-                  ></div>
-                </div>
-                <p className="score-message">
-                  {examResults.percentage >= 70 
-                    ? 'Great job! You are ready for the full course.'
-                    : 'The full course will help you improve your skills!'}
-                </p>
+            {couponApplied && (
+              <div className="discount-row">
+                <span>Discount (DEMO50)</span>
+                <span>-${discountAmount.toFixed(2)}</span>
               </div>
             )}
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="font-semibold mb-3">What You'll Get</h3>
-            <div className="benefits-list">
-              <div className="benefit-item">
-                <span className="benefit-icon">✓</span>
-                <span>Full Access to All Purchased Content</span>
-              </div>
-              <div className="benefit-item">
-                <span className="benefit-icon">✓</span>
-                <span>Certificate of Completion</span>
-              </div>
-              <div className="benefit-item">
-                <span className="benefit-icon">✓</span>
-                <span>1-Year Access to All Materials</span>
-              </div>
-              <div className="benefit-item">
-                <span className="benefit-icon">✓</span>
-                <span>Community Forum Access</span>
-              </div>
+            
+            <div className="total-row">
+              <span>Total</span>
+              <span>${finalTotal}</span>
             </div>
             
-            <div className="border-t border-gray-200 mt-4 pt-4">
-              <h3 className="font-semibold mb-3">Secure Checkout</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Your payment information is processed securely through Stripe. We do not store credit card details.
-              </p>
-              <div className="flex justify-center space-x-2">
-                <img src="/api/placeholder/40/25" alt="Visa" className="h-8" />
-                <img src="/api/placeholder/40/25" alt="Mastercard" className="h-8" />
-                <img src="/api/placeholder/40/25" alt="Amex" className="h-8" />
-                <img src="/api/placeholder/40/25" alt="Discover" className="h-8" />
+            <div className="coupon-section">
+              <div className="coupon-input-group">
+                <input
+                  type="text"
+                  name="couponCode"
+                  placeholder="Enter coupon code"
+                  value={formData.couponCode}
+                  onChange={handleInputChange}
+                  className={errors.couponCode ? 'error' : ''}
+                />
+                <button
+                  onClick={applyCoupon}
+                  disabled={couponApplied}
+                  className={couponApplied ? 'applied' : ''}
+                >
+                  {couponApplied ? 'Applied' : 'Apply'}
+                </button>
               </div>
+              {errors.couponCode && <p className="error-text">{errors.couponCode}</p>}
+              {couponApplied && <p className="success-text">Coupon applied successfully!</p>}
+            </div>
+            
+            <div className="benefits-section">
+              <h3>What's Included</h3>
+              <ul className="benefits-list">
+                <li>✓ Full Access to All Purchased Content</li>
+                <li>✓ Certificate of Completion</li>
+                <li>✓ 1-Year Access to All Materials</li>
+                <li>✓ Community Forum Access</li>
+              </ul>
             </div>
           </div>
         </div>

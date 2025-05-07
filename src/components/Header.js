@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import './Home.css';
 import './Cart.css';
 import './Header.css';
+import examhitLogo from '../assests/examhit-logo.jpg';
 
 function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0, cart = [] }) {
   const navigate = useNavigate();
@@ -25,7 +26,10 @@ function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0,
   return (
     <header className="header">
       <div className="logo">
-        <Link to="/">TestPro</Link>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+          <img src={examhitLogo} alt="ExamHit Logo" style={{ height: 38, marginRight: 10, borderRadius: 6 }} />
+          <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#4a90e2', letterSpacing: '-1px' }}>ExamHit</span>
+        </Link>
       </div>
       <nav className="nav">
         {/* Show navigation links only for authenticated users */}
