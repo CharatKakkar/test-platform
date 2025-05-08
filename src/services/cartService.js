@@ -43,11 +43,19 @@ export const addToCart = async (item) => {
   try {
     const user = auth.currentUser;
     
+    // Ensure all exam data is preserved
+    const cartItem = {
+      ...item,
+      category: item.category,
+      price: parseFloat(item.price) || 0,
+      quantity: item.quantity || 1
+    };
+    
     // For non-authenticated users, save to localStorage
     if (!user) {
       const cart = JSON.parse(localStorage.getItem('cart') || '[]');
       if (!cart.some(cartItem => cartItem.id === item.id)) {
-        cart.push(item);
+        cart.push(cartItem);
         localStorage.setItem('cart', JSON.stringify(cart));
       }
       return cart;
@@ -65,13 +73,13 @@ export const addToCart = async (item) => {
       if (!existingItem) {
         // Add new item
         await updateDoc(cartRef, {
-          items: arrayUnion(item)
+          items: arrayUnion(cartItem)
         });
       }
     } else {
       // Create new cart with the item
       await setDoc(cartRef, {
-        items: [item]
+        items: [cartItem]
       });
     }
     

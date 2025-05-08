@@ -65,7 +65,7 @@ export const addPurchasedExam = async (examData) => {
       examId: examData.examId,
       title: examData.title,
       category: examData.category,
-      price: examData.price || 9.99,
+      price: examData.price,
       purchaseDate: new Date().toISOString(),
       expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
       createdAt: serverTimestamp(),

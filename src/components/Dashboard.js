@@ -17,7 +17,6 @@ function Dashboard({ user }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     testsCompleted: 0,
-    averageScore: 0,
     purchasedExams: 0
   });
   const [debugLog, setDebugLog] = useState([]);
@@ -220,14 +219,10 @@ function Dashboard({ user }) {
         
         // Calculate stats
         const testsCompleted = allAttempts.length;
-        const averageScore = testsCompleted > 0 
-          ? Math.round(allAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / testsCompleted) 
-          : 0;
         
         // Set stats
         setStats({
           testsCompleted,
-          averageScore,
           purchasedExams: userPurchasedExams.length
         });
         
@@ -276,15 +271,11 @@ function Dashboard({ user }) {
       <div className="dashboard-stats">
         <div className="stat-card">
           <h3>Tests Completed</h3>
-          <p className="stat-value">{stats.testsCompleted}</p>
-        </div>
-        <div className="stat-card">
-          <h3>Average Score</h3>
-          <p className="stat-value">{stats.averageScore}%</p>
+          <p className="stat-value">{stats.testsCompleted.toLocaleString()}</p>
         </div>
         <div className="stat-card">
           <h3>Purchased Exams</h3>
-          <p className="stat-value">{stats.purchasedExams}</p>
+          <p className="stat-value">{stats.purchasedExams.toLocaleString()}</p>
         </div>
       </div>
       

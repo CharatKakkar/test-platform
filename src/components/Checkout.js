@@ -155,6 +155,7 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
           id: item.id,
           title: item.title, // stripeService expects 'title' 
           description: item.description || 'Exam preparation material',
+          category: item.category,
           price: item.price, // stripeService will convert to cents
           stripePrice: item.stripePrice,
           quantity: item.quantity || 1

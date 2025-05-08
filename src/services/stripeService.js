@@ -59,10 +59,11 @@ export const createCheckoutSession = async (items, customerInfo, discount = 0, m
         itemsJson: JSON.stringify(items.map(item => ({
           id: item.id,
           name: item.title,
-          price: item.price, // Regular price for display
-          stripePrice: item.stripePrice, // Stripe price ID
+          category: item.category || "Uncategorized",
+          price: item.price,
+          stripePrice: item.stripePrice,
           quantity: item.quantity || 1,
-          finalPrice: item.price * (item.quantity || 1) // Calculate final price for display
+          finalPrice: item.price * (item.quantity || 1)
         })))
       }
     });
@@ -180,10 +181,15 @@ export const verifyCheckoutSession = async (sessionId) => {
           continue;
         }
 
+        // Fetch the exam details to get the correct category
+        const examRef = doc(db, 'exams', examId);
+        const examDoc = await getDoc(examRef);
+        const examDetails = examDoc.exists() ? examDoc.data() : null;
+
         const examData = {
           examId: examId,
           title: item.name || item.title || "Untitled Exam",
-          category: "Uncategorized",
+          category: item.category || examDetails?.category || "Uncategorized",
           price: parseFloat(item.price) || 0,
           sessionId: sessionId,
           purchaseDate: new Date().toISOString(),
