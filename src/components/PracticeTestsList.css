@@ -383,6 +383,9 @@
   
   .test-actions {
     margin-top: 20px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
   }
   
   .mode-options {
@@ -392,9 +395,10 @@
   }
   
   .mode-option {
-    background-color: #f9f9f9;
+    background-color: white;
     padding: 20px;
     border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   }
   
   .mode-option h4 {
@@ -407,6 +411,7 @@
     color: #666;
     font-size: 0.9rem;
     margin-bottom: 15px;
+    line-height: 1.4;
   }
   
   .mode-btn {
@@ -415,13 +420,14 @@
     justify-content: center;
     gap: 8px;
     width: 100%;
-    padding: 10px;
+    padding: 12px;
     border-radius: 6px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
     border: none;
     font-size: 0.95rem;
+    text-decoration: none;
   }
   
   .mode-btn.exam-mode {
@@ -440,6 +446,11 @@
   
   .mode-btn.practice-mode:hover {
     background-color: #2980b9;
+  }
+  
+  .mode-btn svg {
+    width: 16px;
+    height: 16px;
   }
   
   .no-tests-message {
@@ -528,4 +539,127 @@
   
   .test-card-details {
     padding: 20px;
+  }
+
+  .demo-notice {
+    margin-bottom: 30px;
+  }
+
+  .demo-banner {
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .demo-banner h3 {
+    color: #856404;
+    margin: 0 0 10px 0;
+    font-size: 1.2rem;
+  }
+
+  .demo-banner p {
+    color: #856404;
+    margin: 0 0 20px 0;
+  }
+
+  .demo-actions {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+  }
+
+  .demo-actions .btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(67, 97, 238, 0.3);
+    border: none;
+    text-decoration: none;
+  }
+
+  .demo-actions .btn-primary {
+    background-color: #4895ef;
+    color: white;
+  }
+
+  .demo-actions .btn-primary:hover {
+    background-color: #4895ef;
+    transform: translateY(-5px);
+  }
+
+  .demo-actions .btn-danger {
+    background-color: #d90429;
+    color: white;
+  }
+
+  .demo-actions .btn-danger:hover {
+    background-color: #b10022;
+    transform: translateY(-5px);
+  }
+
+  .locked-test-message {
+    text-align: center;
+    padding: 2rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+  }
+  
+  .locked-test-message .lock-icon {
+    margin-bottom: 1rem;
+    color: #6c757d;
+  }
+  
+  .locked-test-message h4 {
+    margin-bottom: 0.5rem;
+    color: #343a40;
+    font-size: 1.25rem;
+  }
+  
+  .locked-test-message p {
+    margin-bottom: 1.5rem;
+    color: #6c757d;
+  }
+  
+  .locked-test-message .btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+  
+  .locked-test-message .btn-primary {
+    background-color: #007bff;
+    color: white;
+  }
+  
+  .locked-test-message .btn-primary:hover {
+    background-color: #0056b3;
+  }
+
+  .btn-danger {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+  }
+
+  .btn-danger:hover {
+    background-color: #c82333;
   }

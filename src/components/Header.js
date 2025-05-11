@@ -27,8 +27,7 @@ function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0,
     <header className="header">
       <div className="logo">
         <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-          <img src={examhitLogo} alt="ExamHit Logo" style={{ height: 38, marginRight: 10, borderRadius: 6 }} />
-          <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#4a90e2', letterSpacing: '-1px' }}>ExamHit</span>
+          <img src={examhitLogo} alt="ExamHit Logo" style={{ height: 80, marginRight: 10, borderRadius: 6 }} />
         </Link>
       </div>
       <nav className="nav">

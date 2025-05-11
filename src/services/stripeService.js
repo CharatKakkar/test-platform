@@ -11,24 +11,61 @@ import {
   updateDoc,
   onSnapshot,
   serverTimestamp,
-  setDoc
+  setDoc,
+  writeBatch,
+  increment
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import purchasedExamsService from './purchasedExamsService';
 
 /**
+ * Verifies the extension configuration and functions
+ * @returns {Promise<boolean>} - True if the extension is properly configured, false otherwise
+ */
+const verifyExtensionConfig = async () => {
+  try {
+    const functions = getFunctions(app);
+    console.log('Checking Firebase Functions...');
+    
+    // Check if the extension's functions exist
+    const createCheckoutSession = httpsCallable(
+      functions,
+      'ext-firestore-stripe-payments-createCheckoutSession'
+    );
+    const createPortalLink = httpsCallable(
+      functions,
+      'ext-firestore-stripe-payments-createPortalLink'
+    );
+    
+    console.log('Extension functions found:', {
+      createCheckoutSession: !!createCheckoutSession,
+      createPortalLink: !!createPortalLink
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Extension verification failed:', error);
+    return false;
+  }
+};
+
+/**
  * Creates a Stripe checkout session using the Firebase Extension approach
  * @param {Array} items - Cart items to purchase
  * @param {Object} customerInfo - Customer information
- * @param {number} discount - Discount amount (if any)
+ * @param {string} promotionCodeId - The promotion code ID to apply (if any)
  * @param {Object} metadata - Additional metadata
  * @returns {Promise<{url: string, sessionId: string}>} - Checkout session URL and ID
  */
-export const createCheckoutSession = async (items, customerInfo, discount = 0, metadata = {}) => {
+export const createCheckoutSession = async (items, customerInfo, promotionCodeId = null, metadata = {}) => {
+  console.log('Creating checkout session with:', { items, customerInfo, promotionCodeId, metadata });
+  
   try {
     const userId = auth.currentUser?.uid;
+    console.log('Current user ID:', userId);
     
     if (!userId) {
+      console.log('No authenticated user found');
       throw new Error("User is not authenticated");
     }
 
@@ -39,23 +76,29 @@ export const createCheckoutSession = async (items, customerInfo, discount = 0, m
       userId,
       "checkout_sessions"
     );
+    console.log('Creating checkout session document in:', checkoutSessionRef.path);
     
-    // Create the checkout session document with required fields
-    const docRef = await addDoc(checkoutSessionRef, {
+    // Create the checkout session document with the working structure
+    const sessionData = {
       line_items: items.map(item => ({
         price: item.stripePrice,
         quantity: item.quantity || 1
       })),
-      mode: 'payment', // or 'subscription' for recurring payments
+      mode: 'payment',
       success_url: `${window.location.origin}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${window.location.origin}/payment/failed`,
+      allow_promotion_codes: true, // Allow users to enter promotion codes in Stripe checkout
+      ...(promotionCodeId && { promotion_code: promotionCodeId }), // Only include promotion_code if provided
       metadata: {
         ...metadata,
         userId,
         customerEmail: customerInfo.email,
         customerName: `${customerInfo.firstName} ${customerInfo.lastName}`,
-        couponApplied: discount > 0 ? 'true' : 'false',
-        discountAmount: discount.toString(),
+        // Add coupon metadata if provided
+        ...(promotionCodeId && {
+          couponApplied: 'true',
+          promotionCodeId: promotionCodeId
+        }),
         itemsJson: JSON.stringify(items.map(item => ({
           id: item.id,
           name: item.title,
@@ -66,37 +109,57 @@ export const createCheckoutSession = async (items, customerInfo, discount = 0, m
           finalPrice: item.price * (item.quantity || 1)
         })))
       }
-    });
+    };
+
+    const docRef = await addDoc(checkoutSessionRef, sessionData);
+    console.log('Created checkout session document:', docRef.id);
 
     // Wait for the extension to populate the document with a URL
     return new Promise((resolve, reject) => {
+      console.log('Setting up snapshot listener for checkout session');
       const unsubscribe = onSnapshot(docRef, (snap) => {
         const data = snap.data();
-        const { error, url, sessionId } = data || {};
+        console.log('Checkout session update:', data);
+        
+        if (!data) {
+          console.log('No data in document yet');
+          return;
+        }
+        
+        const { error, url, sessionId } = data;
         
         if (error) {
+          console.error('Checkout session error:', error);
           unsubscribe();
           reject(new Error(`An error occurred: ${error.message || error}`));
         }
         
         if (url) {
+          console.log('Checkout URL received:', url);
           unsubscribe();
 
-          // Store checkout information in localStorage to retrieve after payment
-          localStorage.setItem('checkoutInfo', JSON.stringify({
+          // Store checkout information in localStorage
+          const checkoutInfo = {
             cart: items,
             customerInfo,
-            couponApplied: discount > 0,
-            discountAmount: discount,
-            finalTotal: items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0) - discount,
+            couponApplied: !!promotionCodeId,
+            couponCode: promotionCodeId || '',
+            discountAmount: 0,
+            finalTotal: items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0),
             sessionId
-          }));
+          };
+          console.log('Saving checkout info to localStorage:', checkoutInfo);
+          localStorage.setItem('checkoutInfo', JSON.stringify(checkoutInfo));
           
           resolve({
             url,
             sessionId: sessionId || snap.id
           });
         }
+      }, (error) => {
+        console.error('Snapshot listener error:', error);
+        unsubscribe();
+        reject(error);
       });
     });
   } catch (error) {
@@ -430,6 +493,241 @@ export const isPaymentSuccessful = async (paymentIntentId) => {
   }
 };
 
+/**
+ * Validates and applies a coupon code
+ * @param {string} couponCode - The coupon code to validate
+ * @param {number} subtotal - The subtotal amount before discount
+ * @returns {Promise<{valid: boolean, stripeCouponId: string, discount: number, message: string}>} - Coupon validation result
+ */
+export const validateCoupon = async (couponCode, subtotal) => {
+  try {
+    // Get coupon from our Firestore coupons collection
+    const couponRef = doc(db, 'coupons', couponCode);
+    const couponDoc = await getDoc(couponRef);
+
+    if (!couponDoc.exists()) {
+      return {
+        valid: false,
+        stripeCouponId: null,
+        discount: 0,
+        message: 'Invalid coupon code'
+      };
+    }
+
+    const coupon = couponDoc.data();
+    const now = new Date();
+
+    // Check if coupon is expired
+    if (coupon.expiryDate && new Date(coupon.expiryDate.toDate()) < now) {
+      return {
+        valid: false,
+        stripeCouponId: null,
+        discount: 0,
+        message: 'Coupon has expired'
+      };
+    }
+
+    // Check if coupon is active
+    if (!coupon.isActive) {
+      return {
+        valid: false,
+        stripeCouponId: null,
+        discount: 0,
+        message: 'Coupon is no longer active'
+      };
+    }
+
+    // Check if coupon has reached its usage limit
+    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+      return {
+        valid: false,
+        stripeCouponId: null,
+        discount: 0,
+        message: 'Coupon usage limit reached'
+      };
+    }
+
+    // Check if user has already used this coupon
+    const userId = auth.currentUser?.uid;
+    if (userId) {
+      const userCouponsRef = collection(db, 'users', userId, 'used_coupons');
+      const userCouponsQuery = query(userCouponsRef, where('couponCode', '==', couponCode));
+      const userCouponsSnapshot = await getDocs(userCouponsQuery);
+      
+      if (userCouponsSnapshot.size >= (coupon.perUserLimit || 1)) {
+        return {
+          valid: false,
+          stripeCouponId: null,
+          discount: 0,
+          message: 'You have already used this coupon'
+        };
+      }
+    }
+
+    // Calculate discount amount
+    let discount = 0;
+    if (coupon.type === 'percentage') {
+      discount = (subtotal * coupon.value) / 100;
+      // Apply maximum discount if specified
+      if (coupon.maxDiscount && discount > coupon.maxDiscount) {
+        discount = coupon.maxDiscount;
+      }
+    } else if (coupon.type === 'fixed') {
+      discount = coupon.value;
+      // Ensure discount doesn't exceed subtotal
+      if (discount > subtotal) {
+        discount = subtotal;
+      }
+    }
+
+    return {
+      valid: true,
+      stripeCouponId: coupon.stripeCouponId,
+      discount,
+      message: `Coupon applied successfully! You saved $${discount.toFixed(2)}`
+    };
+  } catch (error) {
+    console.error('Error validating coupon:', error);
+    return {
+      valid: false,
+      stripeCouponId: null,
+      discount: 0,
+      message: 'Error validating coupon'
+    };
+  }
+};
+
+/**
+ * Creates a new coupon in the database
+ * @param {Object} couponData - The coupon data
+ * @returns {Promise<{success: boolean, message: string}>} - Creation result
+ */
+export const createCoupon = async (couponData) => {
+  try {
+    const {
+      code,
+      type, // 'percentage' or 'fixed'
+      value, // percentage or fixed amount
+      maxDiscount, // optional maximum discount for percentage coupons
+      expiryDate, // optional expiry date
+      isActive = true,
+      description,
+      usageLimit, // optional maximum number of uses
+      usedCount = 0
+    } = couponData;
+
+    // Validate required fields
+    if (!code || !type || !value) {
+      throw new Error('Missing required coupon fields');
+    }
+
+    // Validate coupon type
+    if (!['percentage', 'fixed'].includes(type)) {
+      throw new Error('Invalid coupon type');
+    }
+
+    // Validate value
+    if (type === 'percentage' && (value < 0 || value > 100)) {
+      throw new Error('Percentage must be between 0 and 100');
+    }
+
+    if (type === 'fixed' && value < 0) {
+      throw new Error('Fixed amount cannot be negative');
+    }
+
+    // Create coupon document
+    await setDoc(doc(db, 'coupons', code), {
+      code,
+      type,
+      value,
+      maxDiscount,
+      expiryDate: expiryDate ? new Date(expiryDate) : null,
+      isActive,
+      description,
+      usageLimit,
+      usedCount,
+      createdAt: serverTimestamp()
+    });
+
+    return {
+      success: true,
+      message: 'Coupon created successfully'
+    };
+  } catch (error) {
+    console.error('Error creating coupon:', error);
+    return {
+      success: false,
+      message: error.message || 'Error creating coupon'
+    };
+  }
+};
+
+/**
+ * Updates coupon usage count
+ * @param {string} couponCode - The coupon code
+ * @returns {Promise<boolean>} - Success status
+ */
+export const updateCouponUsage = async (couponCode) => {
+  try {
+    const couponRef = doc(db, 'coupons', couponCode);
+    const couponDoc = await getDoc(couponRef);
+
+    if (!couponDoc.exists()) {
+      return false;
+    }
+
+    const coupon = couponDoc.data();
+    
+    // Check if coupon has reached its usage limit
+    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+      return false;
+    }
+
+    // Update usage count
+    await updateDoc(couponRef, {
+      usedCount: (coupon.usedCount || 0) + 1
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error updating coupon usage:', error);
+    return false;
+  }
+};
+
+/**
+ * Records coupon usage in Firestore
+ * @param {string} couponCode - The coupon code used
+ * @returns {Promise<boolean>} - Success status
+ */
+export const recordCouponUsage = async (couponCode) => {
+  try {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return false;
+
+    const batch = writeBatch(db);
+
+    // Update coupon usage count
+    const couponRef = doc(db, 'coupons', couponCode);
+    batch.update(couponRef, {
+      usedCount: increment(1)
+    });
+
+    // Record user's coupon usage
+    const userCouponRef = doc(db, 'users', userId, 'used_coupons', couponCode);
+    batch.set(userCouponRef, {
+      usedAt: serverTimestamp(),
+      couponCode
+    });
+
+    await batch.commit();
+    return true;
+  } catch (error) {
+    console.error('Error recording coupon usage:', error);
+    return false;
+  }
+};
+
 // Export default object with all functions
 export default {
   createCheckoutSession,
@@ -439,5 +737,9 @@ export default {
   hasAccessToExam,
   getPortalUrl,
   getPayments,
-  isPaymentSuccessful
+  isPaymentSuccessful,
+  validateCoupon,
+  createCoupon,
+  updateCouponUsage,
+  recordCouponUsage
 };

@@ -387,7 +387,12 @@ const ExamDetails = ({ user, isAuthenticated, addToCart, removeFromCart, cart })
               ) : (
                 // If locked, show demo and add to cart buttons
                 <>
-                  <Link to={`/demo/${exam.id}`} className="btn btn-outline">Try Demo</Link>
+                  <Link 
+                    to={`/exam/${examId}/practice-tests`}
+                    className="btn btn-outline"
+                  >
+                    Try Demo
+                  </Link>
                   <button 
                     className={`btn ${isInCart() ? 'btn-danger' : 'btn-primary'}`}
                     onClick={isInCart() ? handleRemoveFromCart : handleAddToCart}

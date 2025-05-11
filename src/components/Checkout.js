@@ -12,6 +12,8 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
   const [couponApplied, setCouponApplied] = useState(false);
   const [authError, setAuthError] = useState('');
   const [redirectingToStripe, setRedirectingToStripe] = useState(false);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponInfo, setCouponInfo] = useState(null);
   
   // Parse user's name into first and last name if available
   const parseUserName = () => {
@@ -108,16 +110,64 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
     return Object.keys(newErrors).length === 0;
   };
 
-  const applyCoupon = () => {
-    // Simple coupon validation
-    if (formData.couponCode.toUpperCase() === 'DEMO50') {
-      setCouponApplied(true);
-      setErrors(prev => ({...prev, couponCode: ''}));
-    } else {
+  const applyCoupon = async () => {
+    if (!formData.couponCode.trim()) {
       setErrors(prev => ({
         ...prev,
-        couponCode: 'Invalid coupon code'
+        couponCode: 'Please enter a coupon code'
       }));
+      return;
+    }
+
+    setCouponLoading(true);
+    setErrors(prev => ({...prev, couponCode: ''}));
+
+    try {
+      // Calculate discount based on cart total
+      const subtotal = cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+      const couponCode = formData.couponCode.toUpperCase();
+      
+      // Map coupon codes to their respective promotion code IDs and discount percentages
+      const couponMap = {
+        'WELCOME50': {
+          promotionCodeId: 'promo_1RNQyFDBBYanrPYmQ5vtWzgt',
+          discountPercentage: 0.5 // 50% discount
+        },
+        'WELCOME20': {
+          promotionCodeId: 'promo_1RNQyFDBBYanrPYmQ5vtWzgt', // Using the same promotion code for now
+          discountPercentage: 0.2 // 20% discount
+        }
+      };
+
+      const couponDetails = couponMap[couponCode];
+      
+      if (couponDetails) {
+        const discount = subtotal * couponDetails.discountPercentage;
+        setCouponApplied(true);
+        setCouponInfo({
+          valid: true,
+          promotionCodeId: couponDetails.promotionCodeId,
+          discount: discount,
+          message: `Coupon applied successfully! You saved $${discount.toFixed(2)}`
+        });
+        setErrors(prev => ({...prev, couponCode: ''}));
+      } else {
+        setCouponApplied(false);
+        setCouponInfo(null);
+        setErrors(prev => ({
+          ...prev,
+          couponCode: 'Invalid coupon code'
+        }));
+      }
+    } catch (error) {
+      setCouponApplied(false);
+      setCouponInfo(null);
+      setErrors(prev => ({
+        ...prev,
+        couponCode: error.message || 'Error applying coupon'
+      }));
+    } finally {
+      setCouponLoading(false);
     }
   };
 
@@ -136,9 +186,6 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
         lastName: formData.lastName
       };
       
-      // Calculate discount amount in dollars
-      const discountAmountDollars = couponApplied ? discountAmount : 0;
-      
       // Additional metadata
       const metadata = {
         userId: user?.uid || 'guest',
@@ -148,24 +195,23 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
         couponApplied: couponApplied.toString()
       };
       
-      // Use stripeService to create checkout session
+      // Use stripeService to create checkout session with the promotion code ID
       const response = await stripeService.createCheckoutSession(
-        // Format cart items for the service
         cart.map(item => ({
           id: item.id,
-          title: item.title, // stripeService expects 'title' 
+          title: item.title,
           description: item.description || 'Exam preparation material',
           category: item.category,
-          price: item.price, // stripeService will convert to cents
+          price: item.price,
           stripePrice: item.stripePrice,
           quantity: item.quantity || 1
         })),
         customerInfo,
-        discountAmountDollars,
+        couponApplied ? couponInfo.promotionCodeId : null, // Pass the promotion code ID instead of coupon code
         metadata
       );
       
-      // Save checkout information to localStorage to retrieve after payment
+      // Save checkout information to localStorage
       localStorage.setItem('checkoutInfo', JSON.stringify({
         cart: cart,
         customerInfo: {
@@ -174,29 +220,23 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
           email: formData.email
         },
         couponApplied: couponApplied,
-        discountAmount: discountAmount,
-        finalTotal: parseFloat(finalTotal),
-        sessionId: response.sessionId // Store the session ID
+        couponCode: formData.couponCode,
+        discountAmount: couponInfo?.discount || 0,
+        finalTotal: cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0) - (couponInfo?.discount || 0),
+        sessionId: response.sessionId
       }));
       
       console.log('Redirecting to:', response.url);
-      
-      // Check if we have a valid URL before redirecting
-      if (response && response.url) {
-        // Redirect to Stripe Checkout
-        window.location.href = response.url;
-      } else {
-        throw new Error('Invalid response from checkout service: Missing URL');
-      }
-      
+      window.location.href = response.url;
     } catch (error) {
-      console.error('Error creating checkout session:', error);
+      console.error('Checkout error:', error);
       setErrors(prev => ({
         ...prev,
-        submit: `Failed to start the checkout process: ${error.message || 'Please try again'}`
+        checkout: error.message || 'Error processing checkout'
       }));
-      setRedirectingToStripe(false);
+    } finally {
       setLoading(false);
+      setRedirectingToStripe(false);
     }
   };
 
@@ -268,16 +308,16 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
                 ))}
               </div>
               
-              {couponApplied && (
+              {couponApplied && couponInfo && (
                 <div className="discount-row">
-                  <span>Discount (DEMO50)</span>
-                  <span>-${discountAmount.toFixed(2)}</span>
+                  <span>Discount ({formData.couponCode})</span>
+                  <span>-${couponInfo.discount.toFixed(2)}</span>
                 </div>
               )}
               
               <div className="total-row">
                 <span>Total</span>
-                <span>${finalTotal}</span>
+                <span>${(cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0) - (couponInfo?.discount || 0)).toFixed(2)}</span>
               </div>
               
               <div className="coupon-section">
@@ -289,17 +329,20 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
                     value={formData.couponCode}
                     onChange={handleInputChange}
                     className={errors.couponCode ? 'error' : ''}
+                    disabled={couponLoading || couponApplied}
                   />
                   <button
                     onClick={applyCoupon}
-                    disabled={couponApplied}
+                    disabled={couponLoading || couponApplied || !formData.couponCode.trim()}
                     className={couponApplied ? 'applied' : ''}
                   >
-                    {couponApplied ? 'Applied' : 'Apply'}
+                    {couponLoading ? 'Validating...' : couponApplied ? 'Applied' : 'Apply'}
                   </button>
                 </div>
                 {errors.couponCode && <p className="error-text">{errors.couponCode}</p>}
-                {couponApplied && <p className="success-text">Coupon applied successfully!</p>}
+                {couponApplied && couponInfo && (
+                  <p className="success-text">{couponInfo.message}</p>
+                )}
               </div>
               
               <div className="benefits-section">
@@ -411,16 +454,16 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
               ))}
             </div>
             
-            {couponApplied && (
+            {couponApplied && couponInfo && (
               <div className="discount-row">
-                <span>Discount (DEMO50)</span>
-                <span>-${discountAmount.toFixed(2)}</span>
+                <span>Discount ({formData.couponCode})</span>
+                <span>-${couponInfo.discount.toFixed(2)}</span>
               </div>
             )}
             
             <div className="total-row">
               <span>Total</span>
-              <span>${finalTotal}</span>
+              <span>${(cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0) - (couponInfo?.discount || 0)).toFixed(2)}</span>
             </div>
             
             <div className="coupon-section">
@@ -432,17 +475,20 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
                   value={formData.couponCode}
                   onChange={handleInputChange}
                   className={errors.couponCode ? 'error' : ''}
+                  disabled={couponLoading || couponApplied}
                 />
                 <button
                   onClick={applyCoupon}
-                  disabled={couponApplied}
+                  disabled={couponLoading || couponApplied || !formData.couponCode.trim()}
                   className={couponApplied ? 'applied' : ''}
                 >
-                  {couponApplied ? 'Applied' : 'Apply'}
+                  {couponLoading ? 'Validating...' : couponApplied ? 'Applied' : 'Apply'}
                 </button>
               </div>
               {errors.couponCode && <p className="error-text">{errors.couponCode}</p>}
-              {couponApplied && <p className="success-text">Coupon applied successfully!</p>}
+              {couponApplied && couponInfo && (
+                <p className="success-text">{couponInfo.message}</p>
+              )}
             </div>
             
             <div className="benefits-section">

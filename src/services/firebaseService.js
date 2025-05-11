@@ -1,5 +1,5 @@
 // services/firebaseService.js
-import { db } from '../firebase'; // Assume you have firebase.js with your Firebase config
+import { db, auth } from '../firebase';
 import { 
   collection, 
   doc, 
@@ -90,9 +90,39 @@ export const getExamById = async (examId) => {
     const examDoc = await getDoc(examRef);
     
     if (examDoc.exists()) {
+      const examData = examDoc.data();
+      console.log("Raw exam data:", examData);
+      
+      // Get the current user's ID
+      const userId = auth.currentUser?.uid;
+      console.log("Current user ID:", userId);
+      
+      if (userId) {
+        // Check if the user has purchased this exam
+        const purchasesRef = collection(db, "purchasedExams", userId, "purchases");
+        const q = query(purchasesRef, where("examId", "==", examId));
+        const purchaseSnapshot = await getDocs(q);
+        
+        const hasPurchased = !purchaseSnapshot.empty;
+        console.log("Purchase check result:", { hasPurchased, purchaseCount: purchaseSnapshot.size });
+        
+        if (hasPurchased) {
+          // If user has purchased, ensure they're in the purchasedExams array
+          const purchasedExams = Array.isArray(examData.purchasedExams) ? examData.purchasedExams : [];
+          if (!purchasedExams.includes(userId)) {
+            console.log("Adding user to purchasedExams array");
+            await updateDoc(examRef, {
+              purchasedExams: [...purchasedExams, userId]
+            });
+            examData.purchasedExams = [...purchasedExams, userId];
+          }
+        }
+      }
+      
       return {
         id: examId,
-        ...examDoc.data()
+        ...examData,
+        purchasedExams: Array.isArray(examData.purchasedExams) ? examData.purchasedExams : []
       };
     } else {
       console.log(`No exam found with ID: ${examId}`);

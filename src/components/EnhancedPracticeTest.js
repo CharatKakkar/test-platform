@@ -19,6 +19,8 @@ const EnhancedPracticeTest = ({ user }) => {
   const mode = location.state?.mode || 'exam';
   // Extract examId from location state 
   const examId = location.state?.examId;
+  // Extract isDemo from location state
+  const isDemo = location.state?.isDemo || false;
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,6 +34,7 @@ const EnhancedPracticeTest = ({ user }) => {
   const [score, setScore] = useState(null);
   const [showExplanation, setShowExplanation] = useState({});
   const [showResults, setShowResults] = useState(false);
+  const [showSignUpPrompt, setShowSignUpPrompt] = useState(false);
 
   // Fetch test data when component mounts
   useEffect(() => {
@@ -182,7 +185,6 @@ const EnhancedPracticeTest = ({ user }) => {
       timeSpent: test.timeLimit * 60 - (timeRemaining || 0),
       mode: mode,
       passingScore: test?.passingScore || 70,
-      // Add the user-friendly test name
       testName: test.displayName || `${exam.title} - ${test.title}`
     };
     
@@ -199,48 +201,39 @@ const EnhancedPracticeTest = ({ user }) => {
           testId, 
           resultData
         );
-        
-        if (attemptId) {
-          console.log(`Test progress saved successfully with ID: ${attemptId}`);
-        } else {
-          console.log('Failed to save test progress, but test results are still displayed');
-        }
+        console.log('Progress saved with attempt ID:', attemptId);
       } catch (error) {
-        console.error('Error saving test progress:', error);
-        console.log('Continuing to show test results despite save error');
+        console.error('Error saving progress:', error);
       }
-    } else {
-      console.log('User not logged in or examId missing, test progress not saved');
+    } else if (isDemo) {
+      // Show sign up prompt for demo users
+      setShowSignUpPrompt(true);
     }
   };
 
-  // Retry the test
+  // Handle retry
   const handleRetry = () => {
+    setCurrentQuestion(0);
     setAnswers({});
     setShowExplanation({});
-    setCurrentQuestion(0);
     setTestCompleted(false);
     setScore(null);
     setShowResults(false);
-    
-    // Reset timer if in exam mode
-    if (mode === 'exam' && test) {
+    if (mode === 'exam') {
       setTimeRemaining(test.timeLimit * 60);
     }
   };
 
-  // View detailed results
+  // Handle view results
   const handleViewResults = () => {
     setShowResults(true);
   };
 
-  // Format time for display
+  // Format time
   const formatTime = (seconds) => {
-    if (!seconds && seconds !== 0) return '--:--';
-    
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   if (loading) {
@@ -253,12 +246,8 @@ const EnhancedPracticeTest = ({ user }) => {
         <div className="error-message">
           <h2>Error</h2>
           <p>{error}</p>
-          <div className="debug-info" style={{ marginTop: "20px", fontSize: "0.8rem", color: "#666" }}>
-            <strong>Test ID:</strong> {testId}<br/>
-            <strong>Exam ID:</strong> {examId || "Not provided"}
-          </div>
-          <button onClick={() => examId ? navigate(`/exam/${examId}/practice-tests`) : navigate('/exams')} className="btn btn-primary">
-            Back to Tests
+          <button onClick={() => navigate(-1)} className="btn btn-primary">
+            Back to Practice Tests
           </button>
         </div>
       </div>
@@ -491,6 +480,27 @@ const EnhancedPracticeTest = ({ user }) => {
 
   return (
     <div className="practice-test-container">
+      {showSignUpPrompt && (
+        <div className="sign-up-prompt">
+          <h3>Great job on completing the demo test!</h3>
+          <p>Sign up now to save your progress and get access to all practice tests.</p>
+          <div className="sign-up-actions">
+            <button 
+              className="btn btn-primary"
+              onClick={() => navigate('/register')}
+            >
+              Sign Up Now
+            </button>
+            <button 
+              className="btn btn-outline"
+              onClick={() => setShowSignUpPrompt(false)}
+            >
+              Maybe Later
+            </button>
+          </div>
+        </div>
+      )}
+      
       <div className="test-header">
         <h1>{test.displayName || `${exam.title} - ${test.title}`}</h1>
         <div className="test-mode-indicator">

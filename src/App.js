@@ -338,9 +338,8 @@ function App() {
             <Route path="/demo/:examId" element={<DemoExam />} />
             
             {/* Enhanced practice test route */}
-            <Route path="/practice-test/:testId" element={isAuthenticated ? 
-              <EnhancedPracticeTest user={user} /> : 
-              <Navigate to="/login" />
+            <Route path="/practice-test/:testId" element={
+              <EnhancedPracticeTest user={user} />
             } />
 
             <Route path="/cart" element={
@@ -354,9 +353,13 @@ function App() {
               />
             } />
 
-            <Route path="/exam/:examId/practice-tests" element={isAuthenticated ? 
-              <PracticeTestsList user={user} /> : 
-              <Navigate to="/login" />
+            <Route path="/exam/:examId/practice-tests" element={
+              <PracticeTestsList 
+                user={user} 
+                addToCart={handleAddToCart}
+                removeFromCart={handleRemoveFromCart}
+                cart={cart}
+              />
             } />
 
             <Route path="/checkout" element={

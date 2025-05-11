@@ -78,6 +78,21 @@ export const addPurchasedExam = async (examData) => {
     // Add the exam as a new document in the subcollection
     await addDoc(purchasesRef, examToStore);
     
+    // Update the exam document to include the user's ID in purchasedExams array
+    const examRef = doc(db, 'exams', examData.examId);
+    const examDoc = await getDoc(examRef);
+    
+    if (examDoc.exists()) {
+      const examData = examDoc.data();
+      const purchasedExams = Array.isArray(examData.purchasedExams) ? examData.purchasedExams : [];
+      
+      if (!purchasedExams.includes(user.uid)) {
+        await updateDoc(examRef, {
+          purchasedExams: [...purchasedExams, user.uid]
+        });
+      }
+    }
+    
     return true;
   } catch (error) {
     console.error("Error adding purchased exam:", error);

@@ -9,8 +9,10 @@ import {
   getUserExamProgress, 
   resetAllUserProgress 
 } from '../services/firebaseService';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 
-const PracticeTestsList = ({ user }) => {
+const PracticeTestsList = ({ user, addToCart, removeFromCart, cart }) => {
   const { examId } = useParams();
   const navigate = useNavigate();
   
@@ -21,12 +23,15 @@ const PracticeTestsList = ({ user }) => {
   const [filter, setFilter] = useState('all');
   const [isResetting, setIsResetting] = useState(false);
   const [error, setError] = useState(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [tests, setTests] = useState([]);
 
   useEffect(() => {
     const fetchExamAndTests = async () => {
       setLoading(true);
       try {
         console.log(`Fetching exam with ID: ${examId}`);
+        console.log("Current user:", user);
         
         // Attempt to retrieve the exam data from session storage first (if set by Dashboard)
         let examData = null;
@@ -56,28 +61,55 @@ const PracticeTestsList = ({ user }) => {
         }
         
         console.log("Found exam:", examData);
+        console.log("User data:", user);
+        console.log("Exam purchase data:", {
+          purchaseDate: examData.purchaseDate,
+          purchasedExams: examData.purchasedExams,
+          purchaseDetails: examData.purchaseDetails
+        });
         
         // Fetch practice tests directly using the document ID
         console.log(`Fetching practice tests using exam ID: ${examId}`);
-        const tests = await getPracticeTestsByExamId(examId);
-        console.log(`Found ${tests.length} practice tests`);
+        const allTests = await getPracticeTestsByExamId(examId);
+        console.log(`Found ${allTests.length} practice tests:`, allTests);
+        
+        // Store all tests
+        setTests(allTests);
+        
+        // Check purchase status directly
+        let hasPurchased = false;
+        if (user) {
+          const purchasesRef = collection(db, "purchasedExams", user.id, "purchases");
+          const q = query(purchasesRef, where("examId", "==", examId));
+          const purchaseSnapshot = await getDocs(q);
+          hasPurchased = !purchaseSnapshot.empty;
+          console.log("Direct purchase check:", { hasPurchased, purchaseCount: purchaseSnapshot.size });
+        }
+        
+        // If user has purchased or is not logged in, show appropriate tests
+        if (hasPurchased) {
+          console.log("User has purchased, showing all tests");
+          setPracticeTests(allTests);
+          setIsDemoMode(false);
+        } else if (!user) {
+          console.log("No user logged in, showing first test only");
+          setPracticeTests(allTests.slice(0, 1));
+          setIsDemoMode(true);
+        } else {
+          console.log("User logged in but hasn't purchased, showing first test only");
+          setPracticeTests(allTests.slice(0, 1));
+          setIsDemoMode(true);
+        }
         
         // If user is authenticated, get their progress data
         let progress = {};
         if (user && user.id) {
           console.log("Fetching progress for user with ID:", user.id);
           const userProgress = await getUserExamProgress(user.id);
-          // Log the entire userProgress object to see its structure
-          console.log("User progress data from Firebase:", userProgress);
-          // Get just the progress for this exam
           progress = userProgress[examId] || {};
           console.log("Filtered progress data for this exam:", progress);
-        } else {
-          console.log("User not authenticated or user.id missing:", user);
         }
         
-        setExam(examData);
-        setPracticeTests(tests);
         setProgressData(progress);
         setError(null);
       } catch (error) {
@@ -108,8 +140,21 @@ const PracticeTestsList = ({ user }) => {
 
   // Start practice test in specified mode
   const startTest = (testId, mode) => {
+    // If user is not logged in and trying to access a test other than the first one
+    if (!user && testId !== practiceTests[0]?.id) {
+      // Show a message encouraging sign up
+      setError("Please sign up to access more practice tests.");
+      return;
+    }
+    
     // Pass both the test ID and exam ID to the practice test component
-    navigate(`/practice-test/${testId}`, { state: { mode, examId } });
+    navigate(`/practice-test/${testId}`, { 
+      state: { 
+        mode, 
+        examId,
+        isDemo: !user // Pass demo status to the practice test component
+      } 
+    });
   };
 
   // Handle reset progress button click
@@ -289,54 +334,105 @@ const PracticeTestsList = ({ user }) => {
   return (
     <div className="practice-tests-container">
       <div className="exam-header">
-        <h1>{exam.title}</h1>
-        <div className="exam-category">{exam.category}</div>
+        <h1>{exam?.title}</h1>
+        <div className="exam-category">{exam?.category}</div>
       </div>
+      
+      {isDemoMode && (
+        <div className="demo-notice">
+          <div className="demo-banner">
+            <h3>Try Before You Buy</h3>
+            <p>Take the first practice test for free! No login required. Sign up to save your progress and unlock all {tests.length} practice tests.</p>
+            <div className="demo-actions">
+              {!user && (
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => navigate('/register')}
+                >
+                  Sign Up to Save Progress
+                </button>
+              )}
+              {cart && cart.some(item => item.id === exam?.id) ? (
+                <button 
+                  className="btn btn-danger"
+                  onClick={() => {
+                    if (exam) {
+                      removeFromCart(exam.id);
+                    }
+                  }}
+                >
+                  Remove from Cart
+                </button>
+              ) : (
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (exam) {
+                      addToCart({
+                        id: exam.id,
+                        title: exam.title,
+                        price: exam.price,
+                        category: exam.category
+                      });
+                    }
+                  }}
+                >
+                  Buy Full Access
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="exam-info-panel">
         <div className="exam-stats">
           <div className="stat-card">
-            <div className="stat-value">{practiceTests.length}</div>
+            <div className="stat-value">{tests.length}</div>
             <div className="stat-label">Practice Tests</div>
           </div>
-          <div className="stat-card">
-            <div className="progress-circle">
-              <svg viewBox="0 0 36 36">
-                <path
-                  className="progress-circle-bg"
-                  d="M18 2.0845
-                    a 15.9155 15.9155 0 0 1 0 31.831
-                    a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className="progress-circle-fill"
-                  strokeDasharray={`${progressPercentage}, 100`}
-                  d="M18 2.0845
-                    a 15.9155 15.9155 0 0 1 0 31.831
-                    a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <text x="18" y="20.35" className="progress-text">
-                  {progressPercentage}%
-                </text>
-              </svg>
-            </div>
-            <div className="stat-label">Course Progress</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value">{remainingDays}</div>
-            <div className="stat-label">Days Remaining</div>
-          </div>
+          {!isDemoMode && (
+            <>
+              <div className="stat-card">
+                <div className="progress-circle">
+                  <svg viewBox="0 0 36 36">
+                    <path
+                      className="progress-circle-bg"
+                      d="M18 2.0845
+                        a 15.9155 15.9155 0 0 1 0 31.831
+                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className="progress-circle-fill"
+                      strokeDasharray={`${calculateProgress()}, 100`}
+                      d="M18 2.0845
+                        a 15.9155 15.9155 0 0 1 0 31.831
+                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <text x="18" y="20.35" className="progress-text">
+                      {calculateProgress()}%
+                    </text>
+                  </svg>
+                </div>
+                <div className="stat-label">Course Progress</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">{remainingDays}</div>
+                <div className="stat-label">Days Remaining</div>
+              </div>
+            </>
+          )}
         </div>
         
         <div className="exam-description">
           <h2>Course Overview</h2>
-          <p>{exam.description}</p>
+          <p>{exam?.description}</p>
           <div className="exam-info">
             <div className="info-item">
               <span className="info-label">Passing Score</span>
-              <span className="info-value">{exam.passingScore}%</span>
+              <span className="info-value">{exam?.passingScore}%</span>
             </div>
-            {exam.purchaseDate && (
+            {exam?.purchaseDate && (
               <div className="info-item">
                 <span className="info-label">Purchase Date</span>
                 <span className="info-value">
@@ -344,66 +440,70 @@ const PracticeTestsList = ({ user }) => {
                 </span>
               </div>
             )}
-            <div className="info-item">
-              <span className="info-label">Access Until</span>
-              <span className="info-value">
-                {new Date(new Date().getTime() + (remainingDays * 24 * 60 * 60 * 1000)).toLocaleDateString()}
-              </span>
-            </div>
+            {!isDemoMode && (
+              <div className="info-item">
+                <span className="info-label">Access Until</span>
+                <span className="info-value">
+                  {new Date(new Date().getTime() + (remainingDays * 24 * 60 * 60 * 1000)).toLocaleDateString()}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
       
       <div className="tests-filter-container">
         <h2>Practice Tests</h2>
-        <div className="filter-tabs">
-          <button 
-            className={filter === 'all' ? 'active' : ''} 
-            onClick={() => setFilter('all')}
-          >
-            All Tests
-          </button>
-          <button 
-            className={filter === 'not-started' ? 'active' : ''} 
-            onClick={() => setFilter('not-started')}
-          >
-            Not Started
-          </button>
-          <button 
-            className={filter === 'completed' ? 'active' : ''} 
-            onClick={() => setFilter('completed')}
-          >
-            Completed
-          </button>
-          <button 
-            className={filter === 'passed' ? 'active' : ''} 
-            onClick={() => setFilter('passed')}
-          >
-            Passed
-          </button>
-          <button 
-            className={filter === 'failed' ? 'active' : ''} 
-            onClick={() => setFilter('failed')}
-          >
-            Failed
-          </button>
-        </div>
+        {!isDemoMode && (
+          <div className="filter-tabs">
+            <button 
+              className={filter === 'all' ? 'active' : ''} 
+              onClick={() => setFilter('all')}
+            >
+              All Tests
+            </button>
+            <button 
+              className={filter === 'not-started' ? 'active' : ''} 
+              onClick={() => setFilter('not-started')}
+            >
+              Not Started
+            </button>
+            <button 
+              className={filter === 'completed' ? 'active' : ''} 
+              onClick={() => setFilter('completed')}
+            >
+              Completed
+            </button>
+            <button 
+              className={filter === 'passed' ? 'active' : ''} 
+              onClick={() => setFilter('passed')}
+            >
+              Passed
+            </button>
+            <button 
+              className={filter === 'failed' ? 'active' : ''} 
+              onClick={() => setFilter('failed')}
+            >
+              Failed
+            </button>
+          </div>
+        )}
       </div>
       
-      {filteredTests.length === 0 ? (
+      {practiceTests.length === 0 ? (
         <div className="no-tests-message">
-          <p>No practice tests match the selected filter. Try a different filter.</p>
+          <p>No practice tests available.</p>
         </div>
       ) : (
         <div className="practice-tests-list">
-          {filteredTests.map(test => {
+          {practiceTests.map(test => {
             const testProgress = progressData[test.id] || { attempts: 0, bestScore: 0 };
             
             return (
               <div key={test.id} className="practice-test-card">
                 <div className="test-card-header">
                   <div className="test-info">
-                    <h3>{test.displayName || `${exam.title} - ${test.title}`}</h3>
+                    <h3>{test.displayName || `${exam?.title} - ${test.title}`}</h3>
                     <div className="test-meta">
                       <span className="test-meta-item">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -423,12 +523,11 @@ const PracticeTestsList = ({ user }) => {
                         {test.difficulty}
                       </span>
                     </div>
-                </div>
+                  </div>
                 </div>
                 
                 <div className="test-card-details">
-
-                  {testProgress.attempts > 0 && (
+                  {!isDemoMode && testProgress.attempts > 0 && (
                     <div className="test-history">
                       <h4>Attempt History</h4>
                       <div className="history-stats">
@@ -455,36 +554,57 @@ const PracticeTestsList = ({ user }) => {
                   )}
                   
                   <div className="test-actions">
-                    <div className="mode-options">
-                      <div className="mode-option">
-                        <h4>Exam Mode</h4>
-                        <p>Timed test with results at the end. Simulates the actual exam experience.</p>
-                        <button 
-                          className="mode-btn exam-mode"
-                          onClick={() => startTest(test.id, 'exam')}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
+                    {isDemoMode && test.id !== practiceTests[0].id ? (
+                      <div className="locked-test-message">
+                        <div className="lock-icon">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                           </svg>
-                          Start Exam Mode
-                        </button>
+                        </div>
+                        <h4>Unlock More Tests</h4>
+                        <p>Sign up to save your progress and get access to all {tests.length} practice tests.</p>
+                        {!user && (
+                          <button 
+                            className="btn btn-primary"
+                            onClick={() => navigate('/register')}
+                          >
+                            Sign Up Now
+                          </button>
+                        )}
                       </div>
-                      
-                      <div className="mode-option">
-                        <h4>Practice Mode</h4>
-                        <p>Untimed test with immediate feedback. Great for learning and reviewing content.</p>
-                        <button 
-                          className="mode-btn practice-mode"
-                          onClick={() => startTest(test.id, 'practice')}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                          </svg>
-                          Start Practice Mode
-                        </button>
+                    ) : (
+                      <div className="mode-options">
+                        <div className="mode-option">
+                          <h4>Exam Mode</h4>
+                          <p>Timed test with results at the end. Simulates the actual exam experience.</p>
+                          <button 
+                            className="mode-btn exam-mode"
+                            onClick={() => startTest(test.id, 'exam')}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10"></circle>
+                              <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            Start Exam Mode
+                          </button>
+                        </div>
+                        
+                        <div className="mode-option">
+                          <h4>Practice Mode</h4>
+                          <p>Untimed test with immediate feedback. Great for learning and reviewing content.</p>
+                          <button 
+                            className="mode-btn practice-mode"
+                            onClick={() => startTest(test.id, 'practice')}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                            Start Practice Mode
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -493,7 +613,7 @@ const PracticeTestsList = ({ user }) => {
         </div>
       )}
 
-      {user && (
+      {user && !isDemoMode && (
         <div className="debug-controls" style={{ marginTop: '30px', padding: '15px', background: '#f8f8f8', borderRadius: '8px' }}>
           <h3>Debug Controls</h3>
           <button 

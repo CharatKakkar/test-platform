@@ -6,7 +6,7 @@ function Footer() {
 
   return (
     <footer className="footer">
-      <p>&copy; {currentYear} TestPro Platform. All rights reserved.</p>
+      <p>&copy; {currentYear} ExamHit.com Platform. All rights reserved.</p>
     </footer>
   );
 }
