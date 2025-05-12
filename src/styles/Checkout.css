@@ -1,0 +1,22 @@
+.coupon-input-group input.invalid {
+  border-color: #dc3545;
+  background-color: #fff8f8;
+}
+
+.coupon-input-group button.invalid {
+  background-color: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}
+
+.coupon-input-group button.invalid:hover {
+  background-color: #c82333;
+  border-color: #bd2130;
+}
+
+.error-text {
+  color: #dc3545;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  font-weight: 500;
+} 

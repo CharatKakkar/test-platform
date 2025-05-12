@@ -78,8 +78,8 @@ export const createCheckoutSession = async (items, customerInfo, promotionCodeId
     );
     console.log('Creating checkout session document in:', checkoutSessionRef.path);
     
-    // Create the checkout session document with the working structure
-    const sessionData = {
+    // Base session data without promotion code
+    const baseSessionData = {
       line_items: items.map(item => ({
         price: item.stripePrice,
         quantity: item.quantity || 1
@@ -88,17 +88,11 @@ export const createCheckoutSession = async (items, customerInfo, promotionCodeId
       success_url: `${window.location.origin}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${window.location.origin}/payment/failed`,
       allow_promotion_codes: true, // Allow users to enter promotion codes in Stripe checkout
-      ...(promotionCodeId && { promotion_code: promotionCodeId }), // Only include promotion_code if provided
       metadata: {
         ...metadata,
         userId,
         customerEmail: customerInfo.email,
         customerName: `${customerInfo.firstName} ${customerInfo.lastName}`,
-        // Add coupon metadata if provided
-        ...(promotionCodeId && {
-          couponApplied: 'true',
-          promotionCodeId: promotionCodeId
-        }),
         itemsJson: JSON.stringify(items.map(item => ({
           id: item.id,
           name: item.title,
@@ -111,6 +105,27 @@ export const createCheckoutSession = async (items, customerInfo, promotionCodeId
       }
     };
 
+    // If we have a promotion code, add it to the session data
+    const sessionData = promotionCodeId ? {
+      ...baseSessionData,
+      promotion_code: promotionCodeId, // Use the promotion code ID from the database
+      metadata: {
+        ...baseSessionData.metadata,
+        couponApplied: 'true',
+        promotionCodeId: promotionCodeId,
+        couponCode: metadata.couponCode // Use the original coupon code from metadata
+      }
+    } : {
+      ...baseSessionData,
+      metadata: {
+        ...baseSessionData.metadata,
+        couponApplied: 'false',
+        promotionCodeId: null,
+        couponCode: null
+      }
+    };
+
+    console.log('Creating session with data:', sessionData);
     const docRef = await addDoc(checkoutSessionRef, sessionData);
     console.log('Created checkout session document:', docRef.id);
 
@@ -130,8 +145,36 @@ export const createCheckoutSession = async (items, customerInfo, promotionCodeId
         
         if (error) {
           console.error('Checkout session error:', error);
+          
+          // If the error is related to the promotion code, try creating a session without it
+          if (error.message?.includes('promotion code') || error.message?.includes('coupon')) {
+            console.log('Promotion code error detected, retrying without promotion code');
+            unsubscribe();
+            
+            // Update the document with base session data (without promotion code)
+            updateDoc(docRef, {
+              ...baseSessionData,
+              metadata: {
+                ...baseSessionData.metadata,
+                couponApplied: 'false',
+                promotionCodeId: null,
+                couponCode: null
+              }
+            })
+              .then(() => {
+                console.log('Updated session without promotion code');
+                // The snapshot listener will pick up the new data
+              })
+              .catch(updateError => {
+                console.error('Error updating session:', updateError);
+                reject(new Error('Failed to create checkout session'));
+              });
+            return;
+          }
+          
           unsubscribe();
           reject(new Error(`An error occurred: ${error.message || error}`));
+          return;
         }
         
         if (url) {
@@ -143,7 +186,7 @@ export const createCheckoutSession = async (items, customerInfo, promotionCodeId
             cart: items,
             customerInfo,
             couponApplied: !!promotionCodeId,
-            couponCode: promotionCodeId || '',
+            couponCode: metadata.couponCode || promotionCodeId || '',
             discountAmount: 0,
             finalTotal: items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0),
             sessionId
@@ -308,6 +351,22 @@ export const verifyCheckoutSession = async (sessionId) => {
           ...purchaseData
         });
       });
+
+      // Record coupon usage if a coupon was applied
+      if (metadata.couponApplied === 'true' && metadata.couponCode) {
+        try {
+          console.log('Recording coupon usage for:', {
+            couponCode: metadata.couponCode,
+            userId: userId,
+            sessionId: sessionId
+          });
+          const recorded = await recordCouponUsage(metadata.couponCode, userId, sessionId);
+          console.log('Coupon usage recorded:', recorded);
+        } catch (error) {
+          console.error('Error recording coupon usage:', error);
+          // Don't block the success flow if coupon recording fails
+        }
+      }
     }
 
     return responseData;
@@ -501,11 +560,28 @@ export const isPaymentSuccessful = async (paymentIntentId) => {
  */
 export const validateCoupon = async (couponCode, subtotal) => {
   try {
+    console.log('Starting coupon validation for:', couponCode);
+    console.log('Subtotal:', subtotal);
+    
+    if (!couponCode || typeof couponCode !== 'string') {
+      console.log('Invalid coupon code format:', couponCode);
+      return {
+        valid: false,
+        stripeCouponId: null,
+        discount: 0,
+        message: 'Invalid coupon code format'
+      };
+    }
+    
     // Get coupon from our Firestore coupons collection
     const couponRef = doc(db, 'coupons', couponCode);
+    console.log('Fetching coupon document from:', couponRef.path);
+    
     const couponDoc = await getDoc(couponRef);
+    console.log('Coupon document exists:', couponDoc.exists());
 
     if (!couponDoc.exists()) {
+      console.log('Coupon not found:', couponCode);
       return {
         valid: false,
         stripeCouponId: null,
@@ -515,20 +591,46 @@ export const validateCoupon = async (couponCode, subtotal) => {
     }
 
     const coupon = couponDoc.data();
-    const now = new Date();
-
-    // Check if coupon is expired
-    if (coupon.expiryDate && new Date(coupon.expiryDate.toDate()) < now) {
+    console.log('Raw coupon data:', coupon);
+    
+    // Validate required fields
+    if (!coupon.stripeCouponId || !coupon.type || coupon.value === undefined) {
+      console.log('Missing required coupon fields:', {
+        hasStripeCouponId: !!coupon.stripeCouponId,
+        hasType: !!coupon.type,
+        hasValue: coupon.value !== undefined,
+        couponData: coupon
+      });
       return {
         valid: false,
         stripeCouponId: null,
         discount: 0,
-        message: 'Coupon has expired'
+        message: 'Invalid coupon configuration'
       };
     }
 
+    const now = new Date();
+    console.log('Current time:', now);
+
+    // Check if coupon is expired
+    if (coupon.expiryDate) {
+      const expiryDate = new Date(coupon.expiryDate.toDate());
+      console.log('Coupon expiry date:', expiryDate);
+      if (expiryDate < now) {
+        console.log('Coupon expired:', couponCode);
+        return {
+          valid: false,
+          stripeCouponId: null,
+          discount: 0,
+          message: 'Coupon has expired'
+        };
+      }
+    }
+
     // Check if coupon is active
-    if (!coupon.isActive) {
+    console.log('Coupon active status:', coupon.isActive);
+    if (coupon.isActive === false) {
+      console.log('Coupon inactive:', couponCode);
       return {
         valid: false,
         stripeCouponId: null,
@@ -538,7 +640,12 @@ export const validateCoupon = async (couponCode, subtotal) => {
     }
 
     // Check if coupon has reached its usage limit
-    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+    console.log('Coupon usage:', {
+      usedCount: coupon.usedCount || 0,
+      usageLimit: coupon.usageLimit
+    });
+    if (coupon.usageLimit && (coupon.usedCount || 0) >= coupon.usageLimit) {
+      console.log('Coupon usage limit reached:', couponCode);
       return {
         valid: false,
         stripeCouponId: null,
@@ -550,22 +657,36 @@ export const validateCoupon = async (couponCode, subtotal) => {
     // Check if user has already used this coupon
     const userId = auth.currentUser?.uid;
     if (userId) {
-      const userCouponsRef = collection(db, 'users', userId, 'used_coupons');
-      const userCouponsQuery = query(userCouponsRef, where('couponCode', '==', couponCode));
-      const userCouponsSnapshot = await getDocs(userCouponsQuery);
+      console.log('Checking user coupon usage for:', userId);
+      const userCouponRef = doc(db, 'used_coupons', userId);
+      const userCouponDoc = await getDoc(userCouponRef);
       
-      if (userCouponsSnapshot.size >= (coupon.perUserLimit || 1)) {
-        return {
-          valid: false,
-          stripeCouponId: null,
-          discount: 0,
-          message: 'You have already used this coupon'
-        };
+      if (userCouponDoc.exists()) {
+        const couponUsageRef = collection(db, 'used_coupons', userId, 'coupon_usage');
+        const couponUsageQuery = query(couponUsageRef, where('couponCode', '==', couponCode));
+        const couponUsageSnapshot = await getDocs(couponUsageQuery);
+        console.log('User coupon usage count:', couponUsageSnapshot.size);
+        
+        if (couponUsageSnapshot.size >= (coupon.perUserLimit || 1)) {
+          console.log('User has already used coupon:', couponCode);
+          return {
+            valid: false,
+            stripeCouponId: null,
+            discount: 0,
+            message: 'You have already used this coupon'
+          };
+        }
       }
     }
 
     // Calculate discount amount
     let discount = 0;
+    console.log('Calculating discount:', {
+      type: coupon.type,
+      value: coupon.value,
+      subtotal: subtotal
+    });
+
     if (coupon.type === 'percentage') {
       discount = (subtotal * coupon.value) / 100;
       // Apply maximum discount if specified
@@ -578,7 +699,21 @@ export const validateCoupon = async (couponCode, subtotal) => {
       if (discount > subtotal) {
         discount = subtotal;
       }
+    } else {
+      console.log('Invalid coupon type:', coupon.type);
+      return {
+        valid: false,
+        stripeCouponId: null,
+        discount: 0,
+        message: 'Invalid coupon type'
+      };
     }
+
+    console.log('Coupon validation successful:', {
+      couponCode,
+      discount,
+      stripeCouponId: coupon.stripeCouponId
+    });
 
     return {
       valid: true,
@@ -588,11 +723,26 @@ export const validateCoupon = async (couponCode, subtotal) => {
     };
   } catch (error) {
     console.error('Error validating coupon:', error);
+    let errorMessage = 'Error validating coupon';
+    
+    // Safely extract error message
+    if (error) {
+      if (typeof error === 'object') {
+        if (error.message) {
+          errorMessage = error.message;
+        } else if (error.toString && typeof error.toString === 'function') {
+          errorMessage = error.toString();
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+    }
+    
     return {
       valid: false,
       stripeCouponId: null,
       discount: 0,
-      message: 'Error validating coupon'
+      message: errorMessage
     };
   }
 };
@@ -698,33 +848,91 @@ export const updateCouponUsage = async (couponCode) => {
 /**
  * Records coupon usage in Firestore
  * @param {string} couponCode - The coupon code used
+ * @param {string} userId - The user ID who used the coupon
+ * @param {string} sessionId - The checkout session ID
  * @returns {Promise<boolean>} - Success status
  */
-export const recordCouponUsage = async (couponCode) => {
+export const recordCouponUsage = async (couponCode, userId, sessionId) => {
   try {
-    const userId = auth.currentUser?.uid;
-    if (!userId) return false;
+    console.log('Starting recordCouponUsage with:', { couponCode, userId, sessionId });
+    
+    if (!userId) {
+      console.log('No userId provided, skipping coupon usage recording');
+      return false;
+    }
+
+    // First get the coupon document to verify it exists and get the coupon code
+    const couponRef = doc(db, 'coupons', couponCode);
+    const couponDoc = await getDoc(couponRef);
+    
+    if (!couponDoc.exists()) {
+      console.error('Coupon document not found:', couponCode);
+      return false;
+    }
 
     const batch = writeBatch(db);
+    console.log('Created write batch');
 
-    // Update coupon usage count
-    const couponRef = doc(db, 'coupons', couponCode);
+    // Update coupon usage count using the correct coupon code
+    console.log('Updating coupon usage count in:', couponRef.path);
     batch.update(couponRef, {
       usedCount: increment(1)
     });
 
-    // Record user's coupon usage
-    const userCouponRef = doc(db, 'users', userId, 'used_coupons', couponCode);
+    // Create or update the user's document in used_coupons collection
+    const userCouponRef = doc(db, 'used_coupons', userId);
+    console.log('Creating/updating user document in:', userCouponRef.path);
     batch.set(userCouponRef, {
+      userId,
+      email: auth.currentUser?.email || '',
+      name: auth.currentUser?.displayName || '',
+      lastUpdated: serverTimestamp()
+    }, { merge: true });
+
+    // Record the specific coupon usage in the user's coupon_usage subcollection
+    const couponUsageRef = doc(db, 'used_coupons', userId, 'coupon_usage', sessionId);
+    console.log('Creating coupon usage document in:', couponUsageRef.path);
+    batch.set(couponUsageRef, {
+      couponCode,
+      sessionId,
       usedAt: serverTimestamp(),
-      couponCode
+      createdAt: serverTimestamp(),
+      stripeCouponId: couponDoc.data().stripeCouponId,
+      status: 'used'
     });
 
+    console.log('Committing batch write');
     await batch.commit();
+    console.log('Successfully recorded coupon usage');
     return true;
   } catch (error) {
     console.error('Error recording coupon usage:', error);
     return false;
+  }
+};
+
+/**
+ * Gets coupon details from Firestore
+ * @param {string} couponCode - The coupon code to retrieve
+ * @returns {Promise<Object>} - Coupon details
+ */
+export const getCouponDetails = async (couponCode) => {
+  try {
+    console.log('Getting details for coupon:', couponCode);
+    const couponRef = doc(db, 'coupons', couponCode);
+    const couponDoc = await getDoc(couponRef);
+    
+    if (!couponDoc.exists()) {
+      console.log('Coupon not found:', couponCode);
+      return null;
+    }
+    
+    const coupon = couponDoc.data();
+    console.log('Coupon details:', coupon);
+    return coupon;
+  } catch (error) {
+    console.error('Error getting coupon details:', error);
+    return null;
   }
 };
 
@@ -741,5 +949,6 @@ export default {
   validateCoupon,
   createCoupon,
   updateCouponUsage,
-  recordCouponUsage
+  recordCouponUsage,
+  getCouponDetails
 };

@@ -78,6 +78,21 @@ const PaymentStatusRouter = ({
         
         if (sessionData.success) {
           console.log("Payment successful, redirecting to success page");
+          
+          // Record coupon usage if a coupon was applied
+          if (sessionData.metadata?.couponApplied === 'true' && sessionData.metadata?.couponCode) {
+            try {
+              await stripeService.recordCouponUsage(
+                sessionData.metadata.couponCode,
+                auth.currentUser.uid,
+                sessionId
+              );
+            } catch (error) {
+              console.error('Error recording coupon usage:', error);
+              // Don't block the success flow if coupon recording fails
+            }
+          }
+          
           // Payment successful - redirect to success page with all session data
           navigate(successRedirect, {
             state: {

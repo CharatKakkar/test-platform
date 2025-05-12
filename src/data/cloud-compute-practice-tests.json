@@ -1,0 +1,301 @@
+{
+  "examId": "7vNYHPzUNwgTeZyxMACt",
+  "title": "Cloud Compute Fundamentals",
+  "category": "Cloud",
+  "practiceTests": [
+    {
+      "id": "shared-responsibility-1",
+      "title": "Shared Responsibility Model",
+      "description": "Test your understanding of the shared responsibility model in cloud computing",
+      "timeLimit": 15,
+      "questionCount": 10,
+      "difficulty": "Beginner",
+      "questions": [
+        {
+          "id": "sr-1",
+          "question": "A company is using Azure SQL Database (PaaS) for their application. Which of the following is the company's responsibility?",
+          "options": [
+            "Maintaining the physical servers",
+            "Managing database patches and updates",
+            "Ensuring data security and access control",
+            "Maintaining network infrastructure"
+          ],
+          "correctAnswer": 2,
+          "explanation": "When using PaaS services like Azure SQL Database, the cloud provider (Microsoft) is responsible for maintaining the physical infrastructure, network, and database software. The customer is responsible for their data and access control. This is part of the shared responsibility model where data security and access control always remain the customer's responsibility."
+        },
+        {
+          "id": "sr-2",
+          "question": "In a cloud environment, who is always responsible for physical security of the datacenter?",
+          "options": [
+            "The cloud provider",
+            "The customer",
+            "Both the cloud provider and customer",
+            "A third-party security company"
+          ],
+          "correctAnswer": 0,
+          "explanation": "The cloud provider is always responsible for physical security of the datacenter, including physical access controls, power, cooling, and network connectivity. This is a fundamental part of the shared responsibility model that cannot be transferred to the customer."
+        },
+        {
+          "id": "sr-3",
+          "question": "A company is using Azure Virtual Machines (IaaS). Which of the following is NOT their responsibility?",
+          "options": [
+            "Operating system updates",
+            "Application security",
+            "Physical server maintenance",
+            "Data backup"
+          ],
+          "correctAnswer": 2,
+          "explanation": "In an IaaS model like Azure VMs, the cloud provider is responsible for physical server maintenance. The customer is responsible for the operating system, applications, data, and security of their virtual machines."
+        },
+        {
+          "id": "sr-4",
+          "question": "Which of the following is always the customer's responsibility in the cloud, regardless of service model?",
+          "options": [
+            "Network security",
+            "Data and information security",
+            "Physical infrastructure",
+            "Power and cooling"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Data and information security is always the customer's responsibility, regardless of whether they're using IaaS, PaaS, or SaaS. This includes protecting sensitive data, managing access controls, and ensuring compliance with data protection regulations."
+        },
+        {
+          "id": "sr-5",
+          "question": "A company is using Microsoft 365 (SaaS). What is their primary responsibility?",
+          "options": [
+            "Managing the underlying infrastructure",
+            "Maintaining the application code",
+            "Controlling user access and data",
+            "Updating the application"
+          ],
+          "correctAnswer": 2,
+          "explanation": "In a SaaS model like Microsoft 365, the cloud provider manages the infrastructure, application, and updates. The customer's primary responsibility is controlling user access and managing their data within the application."
+        }
+      ]
+    },
+    {
+      "id": "cloud-models-1",
+      "title": "Cloud Deployment Models",
+      "description": "Test your understanding of different cloud deployment models",
+      "timeLimit": 15,
+      "questionCount": 10,
+      "difficulty": "Beginner",
+      "questions": [
+        {
+          "id": "cm-1",
+          "question": "Which cloud model provides the most control over resources and security?",
+          "options": [
+            "Public cloud",
+            "Private cloud",
+            "Hybrid cloud",
+            "Multi-cloud"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Private cloud provides the most control over resources and security because it's dedicated to a single organization. This allows for complete customization of security policies, resource allocation, and infrastructure management."
+        },
+        {
+          "id": "cm-2",
+          "question": "A company wants to maintain sensitive data on-premises while using cloud services for development. Which cloud model is most appropriate?",
+          "options": [
+            "Public cloud",
+            "Private cloud",
+            "Hybrid cloud",
+            "Multi-cloud"
+          ],
+          "correctAnswer": 2,
+          "explanation": "A hybrid cloud model is ideal for this scenario as it allows the company to keep sensitive data in their private cloud/on-premises while leveraging public cloud services for development. This provides both security and flexibility."
+        },
+        {
+          "id": "cm-3",
+          "question": "Which of the following is a key advantage of public cloud?",
+          "options": [
+            "Complete control over infrastructure",
+            "No capital expenditures to scale up",
+            "Data isolation from other organizations",
+            "Custom security policies"
+          ],
+          "correctAnswer": 1,
+          "explanation": "One of the main advantages of public cloud is that organizations don't need to make capital expenditures to scale up. They can quickly provision resources and only pay for what they use, making it more cost-effective for many scenarios."
+        },
+        {
+          "id": "cm-4",
+          "question": "What is the main characteristic of a multi-cloud environment?",
+          "options": [
+            "Using both public and private clouds",
+            "Using multiple public cloud providers",
+            "Using only private clouds",
+            "Using only public clouds"
+          ],
+          "correctAnswer": 1,
+          "explanation": "A multi-cloud environment involves using multiple public cloud providers. This could be because an organization uses different features from different providers or is in the process of migrating between providers."
+        },
+        {
+          "id": "cm-5",
+          "question": "Which cloud model would be best for a company that needs to handle temporary spikes in demand?",
+          "options": [
+            "Private cloud only",
+            "Public cloud only",
+            "Hybrid cloud",
+            "Multi-cloud"
+          ],
+          "correctAnswer": 2,
+          "explanation": "A hybrid cloud model is ideal for handling temporary spikes in demand because it allows the company to maintain their base infrastructure in a private cloud while bursting to public cloud resources when additional capacity is needed."
+        }
+      ]
+    },
+    {
+      "id": "azure-management-1",
+      "title": "Azure Management Infrastructure",
+      "description": "Test your understanding of Azure's management infrastructure including resources, resource groups, subscriptions, and management groups",
+      "timeLimit": 15,
+      "questionCount": 10,
+      "difficulty": "Beginner",
+      "questions": [
+        {
+          "id": "am-1",
+          "question": "A company needs to organize their Azure resources for a development environment that will be temporary. What is the best way to manage these resources?",
+          "options": [
+            "Create individual resources without grouping",
+            "Place all resources in a single resource group",
+            "Create multiple resource groups for each resource type",
+            "Use management groups for organization"
+          ],
+          "correctAnswer": 1,
+          "explanation": "For temporary environments like development, placing all resources in a single resource group is ideal because you can easily deprovision all resources at once by deleting the resource group. This simplifies management and cleanup."
+        },
+        {
+          "id": "am-2",
+          "question": "Which of the following statements about Azure resource groups is correct?",
+          "options": [
+            "A resource can belong to multiple resource groups simultaneously",
+            "Resource groups can be nested within other resource groups",
+            "A resource can only be in one resource group at a time",
+            "Resource groups are only used for billing purposes"
+          ],
+          "correctAnswer": 2,
+          "explanation": "A fundamental rule of Azure resource groups is that a single resource can only be in one resource group at a time. While resources can be moved between resource groups, they cannot exist in multiple groups simultaneously."
+        },
+        {
+          "id": "am-3",
+          "question": "A company wants to separate their production and development environments for billing purposes. What should they use?",
+          "options": [
+            "Different resource groups",
+            "Different subscriptions",
+            "Different management groups",
+            "Different Azure accounts"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Subscriptions are the primary unit for billing in Azure. By creating separate subscriptions for production and development, the company can get separate billing reports and invoices, making it easier to track and manage costs for each environment."
+        },
+        {
+          "id": "am-4",
+          "question": "Which of the following is a key benefit of using Azure management groups?",
+          "options": [
+            "Direct resource management",
+            "Billing separation",
+            "Hierarchical organization of subscriptions",
+            "Resource grouping"
+          ],
+          "correctAnswer": 2,
+          "explanation": "Management groups provide a level of scope above subscriptions, allowing for hierarchical organization. This is particularly useful for large organizations that need to manage multiple subscriptions with consistent governance policies."
+        },
+        {
+          "id": "am-5",
+          "question": "A company needs to apply the same security policy to multiple subscriptions. What is the most efficient way to do this?",
+          "options": [
+            "Apply the policy to each subscription individually",
+            "Create a management group and apply the policy to it",
+            "Use resource groups to apply the policy",
+            "Create a new subscription with the policy"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Management groups allow you to apply policies to multiple subscriptions at once. When you apply a policy to a management group, all subscriptions within that group automatically inherit the policy, making it more efficient than applying policies individually."
+        },
+        {
+          "id": "am-6",
+          "question": "What is the maximum number of management groups supported in a single directory?",
+          "options": [
+            "1,000",
+            "5,000",
+            "10,000",
+            "Unlimited"
+          ],
+          "correctAnswer": 2,
+          "explanation": "Azure supports up to 10,000 management groups in a single directory. This limit is designed to accommodate large organizations while maintaining performance and manageability."
+        },
+        {
+          "id": "am-7",
+          "question": "A company wants to limit VM locations to the US West Region for all production resources. What is the best way to implement this?",
+          "options": [
+            "Apply the policy to individual VMs",
+            "Apply the policy to resource groups",
+            "Apply the policy to a management group containing production subscriptions",
+            "Apply the policy to individual subscriptions"
+          ],
+          "correctAnswer": 2,
+          "explanation": "By applying the location policy to a management group containing all production subscriptions, the policy will automatically apply to all VMs under those subscriptions. This ensures consistent governance across all production resources."
+        },
+        {
+          "id": "am-8",
+          "question": "Which of the following is NOT a valid use case for creating additional Azure subscriptions?",
+          "options": [
+            "Separating environments (dev/test/prod)",
+            "Organizing resources by department",
+            "Managing billing for different projects",
+            "Grouping related resources"
+          ],
+          "correctAnswer": 3,
+          "explanation": "Grouping related resources is typically handled by resource groups, not subscriptions. Subscriptions are used for billing, access control, and environment separation, while resource groups are used for logical organization of resources."
+        },
+        {
+          "id": "am-9",
+          "question": "Scenario: A financial services company has three departments: Retail Banking, Investment Banking, and Corporate Banking. Each department needs its own Azure resources with different security requirements and cost centers. The company also needs to maintain compliance with financial regulations. What is the best approach to organize their Azure resources?",
+          "options": [
+            "Create three resource groups, one for each department",
+            "Create three subscriptions under a single management group",
+            "Create three separate Azure accounts",
+            "Use tags to differentiate between departments"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Creating three subscriptions under a single management group is the best approach because: 1) Each department gets separate billing and cost tracking, 2) Different security policies can be applied per subscription, 3) The management group can enforce organization-wide compliance policies, and 4) It provides clear separation of resources while maintaining centralized governance."
+        },
+        {
+          "id": "am-10",
+          "question": "Scenario: A healthcare provider is migrating their patient management system to Azure. They need to ensure HIPAA compliance, maintain separate environments for development and production, and track costs by department. They also need to ensure that only authorized personnel can access patient data. What is the most appropriate Azure management structure?",
+          "options": [
+            "Create two resource groups: one for development and one for production",
+            "Create two subscriptions (dev and prod) under a management group with HIPAA policies",
+            "Create separate Azure accounts for each department",
+            "Use a single subscription with different resource groups"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Creating two subscriptions under a management group is ideal because: 1) The management group can enforce HIPAA compliance policies across all subscriptions, 2) Development and production environments are completely isolated, 3) Each subscription can have its own access controls, 4) Cost tracking is separated between environments, and 5) The management group ensures consistent security policies."
+        },
+        {
+          "id": "am-11",
+          "question": "Scenario: A global retail company has operations in North America, Europe, and Asia. They need to deploy their e-commerce platform in Azure with region-specific configurations and compliance requirements. They also need to maintain separate development, testing, and production environments. What is the best way to structure their Azure resources?",
+          "options": [
+            "Create one subscription with resource groups for each region",
+            "Create three subscriptions (dev, test, prod) with management groups for each region",
+            "Create separate Azure accounts for each region",
+            "Use a single management group with region-specific policies"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Creating three subscriptions (dev, test, prod) with management groups for each region is the best approach because: 1) It separates environments for proper lifecycle management, 2) Each region can have its own management group with specific compliance policies, 3) Cost tracking is clear across environments and regions, 4) Access control can be managed at both subscription and management group levels, and 5) It provides flexibility for region-specific configurations."
+        },
+        {
+          "id": "am-12",
+          "question": "Scenario: A software development company is working on multiple client projects. Each project needs its own development, testing, and production environments. They need to track costs per project and ensure that developers can only access their assigned projects. What is the most efficient way to organize their Azure resources?",
+          "options": [
+            "Create a resource group for each project",
+            "Create a subscription for each project with three resource groups (dev, test, prod)",
+            "Create a management group for each client",
+            "Use a single subscription with project-specific tags"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Creating a subscription for each project with three resource groups is the best approach because: 1) Each project gets its own billing and cost tracking, 2) Access control can be managed at the subscription level, 3) The three resource groups (dev, test, prod) provide proper environment separation, 4) It's easier to manage project-specific policies, and 5) When a project ends, the entire subscription can be deleted."
+        }
+      ]
+    }
+  ]
+} 

@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './Checkout.css';
-import stripeService from '../services/stripeService.js'; // Import the stripeService
+import stripeService from '../services/stripeService.js';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, cartTotal = 0, onLogin }) => {
   const navigate = useNavigate();
@@ -14,6 +16,7 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
   const [redirectingToStripe, setRedirectingToStripe] = useState(false);
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponInfo, setCouponInfo] = useState(null);
+  const [couponStatus, setCouponStatus] = useState('');
   
   // Parse user's name into first and last name if available
   const parseUserName = () => {
@@ -111,65 +114,127 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
   };
 
   const applyCoupon = async () => {
-    if (!formData.couponCode.trim()) {
-      setErrors(prev => ({
-        ...prev,
-        couponCode: 'Please enter a coupon code'
-      }));
-      return;
-    }
-
+    // Reset states
     setCouponLoading(true);
+    setCouponStatus('');
     setErrors(prev => ({...prev, couponCode: ''}));
-
+    
     try {
-      // Calculate discount based on cart total
-      const subtotal = cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
-      const couponCode = formData.couponCode.toUpperCase();
-      
-      // Map coupon codes to their respective promotion code IDs and discount percentages
-      const couponMap = {
-        'WELCOME50': {
-          promotionCodeId: 'promo_1RNQyFDBBYanrPYmQ5vtWzgt',
-          discountPercentage: 0.5 // 50% discount
-        },
-        'WELCOME20': {
-          promotionCodeId: 'promo_1RNQyFDBBYanrPYmQ5vtWzgt', // Using the same promotion code for now
-          discountPercentage: 0.2 // 20% discount
-        }
-      };
+      // Basic validation
+      const couponCode = formData.couponCode?.trim()?.toUpperCase();
+      if (!couponCode) {
+        setErrors(prev => ({
+          ...prev,
+          couponCode: 'Please enter a coupon code'
+        }));
+        return;
+      }
 
-      const couponDetails = couponMap[couponCode];
+      // Calculate subtotal
+      const subtotal = cart.reduce((sum, item) => {
+        const price = parseFloat(item.price) || 0;
+        const quantity = parseInt(item.quantity) || 1;
+        return sum + (price * quantity);
+      }, 0);
+
+      // Check if user has already used this coupon
+      if (user?.uid) {
+        const userCouponRef = doc(db, 'used_coupons', user.uid);
+        const userCouponDoc = await getDoc(userCouponRef);
+        
+        if (userCouponDoc.exists()) {
+          const couponUsageRef = collection(db, 'used_coupons', user.uid, 'coupon_usage');
+          const couponUsageQuery = query(couponUsageRef, where('couponCode', '==', couponCode));
+          const couponUsageSnapshot = await getDocs(couponUsageQuery);
+          
+          // Get the coupon document to check perUserLimit
+          const couponRef = doc(db, 'coupons', couponCode);
+          const couponDoc = await getDoc(couponRef);
+          const coupon = couponDoc.data();
+          
+          if (couponUsageSnapshot.size >= (coupon?.perUserLimit || 1)) {
+            setCouponApplied(false);
+            setCouponStatus('invalid');
+            setCouponInfo(null);
+            setErrors(prev => ({
+              ...prev,
+              couponCode: 'You have reached the usage limit for this coupon'
+            }));
+            return;
+          }
+        }
+      }
+
+      // Validate coupon
+      const result = await stripeService.validateCoupon(couponCode, subtotal);
       
-      if (couponDetails) {
-        const discount = subtotal * couponDetails.discountPercentage;
+      // Handle validation result
+      if (result?.valid) {
         setCouponApplied(true);
+        setCouponStatus('valid');
         setCouponInfo({
           valid: true,
-          promotionCodeId: couponDetails.promotionCodeId,
-          discount: discount,
-          message: `Coupon applied successfully! You saved $${discount.toFixed(2)}`
+          promotionCodeId: result.stripeCouponId,
+          discount: result.discount,
+          message: result.message
         });
-        setErrors(prev => ({...prev, couponCode: ''}));
       } else {
         setCouponApplied(false);
+        setCouponStatus('invalid');
         setCouponInfo(null);
         setErrors(prev => ({
           ...prev,
-          couponCode: 'Invalid coupon code'
+          couponCode: result?.message || 'Invalid coupon code'
         }));
       }
-    } catch (error) {
+    } catch (err) {
+      // Handle any errors
       setCouponApplied(false);
+      setCouponStatus('invalid');
       setCouponInfo(null);
+      
+      // Get error message safely
+      const errorMessage = err?.message || 
+                         (typeof err === 'string' ? err : 'Error applying coupon');
+      
       setErrors(prev => ({
         ...prev,
-        couponCode: error.message || 'Error applying coupon'
+        couponCode: errorMessage
       }));
     } finally {
       setCouponLoading(false);
     }
   };
+
+  // Define renderCouponSection as a component function
+  const renderCouponSection = () => (
+    <div className="coupon-section">
+      <div className="coupon-input-group">
+        <input
+          type="text"
+          name="couponCode"
+          placeholder="Enter coupon code"
+          value={formData.couponCode}
+          onChange={handleInputChange}
+          className={`${errors.couponCode ? 'error' : ''} ${couponStatus === 'invalid' ? 'invalid' : ''}`}
+          disabled={couponLoading || (couponApplied && couponStatus === 'valid')}
+        />
+        <button
+          onClick={applyCoupon}
+          disabled={couponLoading || (couponApplied && couponStatus === 'valid') || !formData.couponCode.trim()}
+          className={`${couponApplied ? 'applied' : ''} ${couponStatus === 'invalid' ? 'invalid' : ''}`}
+        >
+          {couponLoading ? 'Validating...' : 
+           couponStatus === 'invalid' ? (errors.couponCode === 'Coupon expired' ? 'Expired' : 'Invalid') : 
+           couponApplied ? 'Applied' : 'Apply'}
+        </button>
+      </div>
+      {errors.couponCode && <p className="error-text">{errors.couponCode}</p>}
+      {couponApplied && couponInfo && couponStatus === 'valid' && (
+        <p className="success-text">{couponInfo.message}</p>
+      )}
+    </div>
+  );
 
   // Redirect to Stripe Checkout - UPDATED to use stripeService
   const redirectToStripeCheckout = async () => {
@@ -177,6 +242,7 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
     
     setLoading(true);
     setRedirectingToStripe(true);
+    setErrors(prev => ({ ...prev, checkout: '' }));
     
     try {
       // Create customer info object
@@ -192,10 +258,14 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
-        couponApplied: couponApplied.toString()
+        couponApplied: couponApplied && couponStatus === 'valid' ? 'true' : 'false',
+        couponCode: couponApplied && couponStatus === 'valid' ? formData.couponCode.toUpperCase() : null
       };
       
-      // Use stripeService to create checkout session with the promotion code ID
+      // Only include promotion code if coupon is valid
+      const promotionCodeId = (couponApplied && couponStatus === 'valid') ? couponInfo.promotionCodeId : null;
+      
+      // Use stripeService to create checkout session
       const response = await stripeService.createCheckoutSession(
         cart.map(item => ({
           id: item.id,
@@ -207,9 +277,14 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
           quantity: item.quantity || 1
         })),
         customerInfo,
-        couponApplied ? couponInfo.promotionCodeId : null, // Pass the promotion code ID instead of coupon code
+        promotionCodeId,
         metadata
       );
+      
+      // Record coupon usage if a valid coupon was applied
+      if (couponApplied && couponStatus === 'valid' && user) {
+        await stripeService.recordCouponUsage(formData.couponCode.toUpperCase(), user.uid, response.sessionId);
+      }
       
       // Save checkout information to localStorage
       localStorage.setItem('checkoutInfo', JSON.stringify({
@@ -219,10 +294,11 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
           lastName: formData.lastName,
           email: formData.email
         },
-        couponApplied: couponApplied,
-        couponCode: formData.couponCode,
-        discountAmount: couponInfo?.discount || 0,
-        finalTotal: cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0) - (couponInfo?.discount || 0),
+        couponApplied: couponApplied && couponStatus === 'valid',
+        couponCode: couponApplied && couponStatus === 'valid' ? formData.couponCode : '',
+        discountAmount: couponApplied && couponStatus === 'valid' ? couponInfo.discount : 0,
+        finalTotal: cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0) - 
+          (couponApplied && couponStatus === 'valid' ? couponInfo.discount : 0),
         sessionId: response.sessionId
       }));
       
@@ -230,10 +306,42 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
       window.location.href = response.url;
     } catch (error) {
       console.error('Checkout error:', error);
-      setErrors(prev => ({
-        ...prev,
-        checkout: error.message || 'Error processing checkout'
-      }));
+      
+      // Handle promotion code specific errors
+      const errorMessage = error?.message || '';
+      const isPromotionError = errorMessage.includes('promotion code') || errorMessage.includes('coupon');
+      
+      if (isPromotionError) {
+        // Reset coupon state but keep the code
+        setCouponApplied(false);
+        setCouponStatus('invalid');
+        setCouponInfo(null);
+        
+        // Check if it's an expired coupon error
+        if (errorMessage.includes('expired')) {
+          setErrors(prev => ({
+            ...prev,
+            couponCode: 'Coupon expired',
+            checkout: 'Please remove the expired coupon before proceeding'
+          }));
+        } else {
+          // For other coupon errors, clear the input
+          setFormData(prev => ({
+            ...prev,
+            couponCode: ''
+          }));
+          setErrors(prev => ({
+            ...prev,
+            couponCode: 'You have already used this coupon',
+            checkout: 'Please remove the invalid coupon before proceeding'
+          }));
+        }
+      } else {
+        setErrors(prev => ({
+          ...prev,
+          checkout: errorMessage || 'Error processing checkout'
+        }));
+      }
     } finally {
       setLoading(false);
       setRedirectingToStripe(false);
@@ -254,6 +362,70 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
       setLoading(false);
     }
   };
+
+  // Update the order summary section to only show discount when coupon is valid
+  const renderOrderSummary = () => (
+    <div className="order-summary-card">
+      <h2>Order Summary</h2>
+      
+      <div className="cart-items">
+        {cart.map(item => (
+          <div key={item.id} className="cart-item">
+            <div className="item-details">
+              <span className="item-title">{item.title}</span>
+            </div>
+            <span className="item-price">${item.price.toFixed(2)}</span>
+          </div>
+        ))}
+      </div>
+      
+      {couponApplied && couponInfo && couponStatus === 'valid' && (
+        <div className="discount-row">
+          <span>Discount ({formData.couponCode})</span>
+          <span>-${couponInfo.discount.toFixed(2)}</span>
+        </div>
+      )}
+      
+      <div className="total-row">
+        <span>Total</span>
+        <span>${(cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0) - 
+          (couponApplied && couponInfo && couponStatus === 'valid' ? couponInfo.discount : 0)).toFixed(2)}</span>
+      </div>
+      
+      {renderCouponSection()}
+      
+      <div className="benefits-section">
+        <h3>What's Included</h3>
+        <ul className="benefits-list">
+          <li>✓ Full Access to All Purchased Content</li>
+          <li>✓ Certificate of Completion</li>
+          <li>✓ 1-Year Access to All Materials</li>
+          <li>✓ Community Forum Access</li>
+        </ul>
+      </div>
+    </div>
+  );
+
+  // Update the payment section to show error if coupon is invalid
+  const renderPaymentSection = () => (
+    <div className="card-section">
+      <h2>Payment Method</h2>
+      <div className="payment-info">
+        <p>You'll be redirected to Stripe's secure payment page to complete your purchase.</p>
+        {couponStatus === 'invalid' && (
+          <p className="error-text">Please remove the invalid coupon before proceeding</p>
+        )}
+      </div>
+      
+      <button
+        onClick={redirectToStripeCheckout}
+        disabled={loading || redirectingToStripe || couponStatus === 'invalid'}
+        className={`checkout-button ${couponStatus === 'invalid' ? 'disabled' : ''}`}
+      >
+        {redirectingToStripe ? 'Redirecting to secure payment...' : loading ? 'Processing...' : 'Proceed to Payment'}
+      </button>
+    </div>
+  );
 
   // For non-logged in users, show auth forms
   if (!user) {
@@ -294,67 +466,7 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
           </div>
           
           <div className="checkout-sidebar">
-            <div className="order-summary-card">
-              <h2>Order Summary</h2>
-              
-              <div className="cart-items">
-                {cart.map(item => (
-                  <div key={item.id} className="cart-item">
-                    <div className="item-details">
-                      <span className="item-title">{item.title}</span>
-                    </div>
-                    <span className="item-price">${item.price.toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-              
-              {couponApplied && couponInfo && (
-                <div className="discount-row">
-                  <span>Discount ({formData.couponCode})</span>
-                  <span>-${couponInfo.discount.toFixed(2)}</span>
-                </div>
-              )}
-              
-              <div className="total-row">
-                <span>Total</span>
-                <span>${(cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0) - (couponInfo?.discount || 0)).toFixed(2)}</span>
-              </div>
-              
-              <div className="coupon-section">
-                <div className="coupon-input-group">
-                  <input
-                    type="text"
-                    name="couponCode"
-                    placeholder="Enter coupon code"
-                    value={formData.couponCode}
-                    onChange={handleInputChange}
-                    className={errors.couponCode ? 'error' : ''}
-                    disabled={couponLoading || couponApplied}
-                  />
-                  <button
-                    onClick={applyCoupon}
-                    disabled={couponLoading || couponApplied || !formData.couponCode.trim()}
-                    className={couponApplied ? 'applied' : ''}
-                  >
-                    {couponLoading ? 'Validating...' : couponApplied ? 'Applied' : 'Apply'}
-                  </button>
-                </div>
-                {errors.couponCode && <p className="error-text">{errors.couponCode}</p>}
-                {couponApplied && couponInfo && (
-                  <p className="success-text">{couponInfo.message}</p>
-                )}
-              </div>
-              
-              <div className="benefits-section">
-                <h3>What's Included</h3>
-                <ul className="benefits-list">
-                  <li>✓ Full Access to All Purchased Content</li>
-                  <li>✓ Certificate of Completion</li>
-                  <li>✓ 1-Year Access to All Materials</li>
-                  <li>✓ Community Forum Access</li>
-                </ul>
-              </div>
-            </div>
+            {renderOrderSummary()}
           </div>
         </div>
       </div>
@@ -416,91 +528,12 @@ const Checkout = ({ cart = [], user, clearCart, removeFromCart, updateQuantity, 
               </div>
             </div>
             
-            <div className="card-section">
-              <h2>Payment Method</h2>
-              <div className="payment-info">
-                <p>You'll be redirected to Stripe's secure payment page to complete your purchase.</p>
-              </div>
-              
-              {errors.submit && (
-                <div className="error-banner">
-                  {errors.submit}
-                </div>
-              )}
-              
-              <button
-                onClick={redirectToStripeCheckout}
-                disabled={loading || redirectingToStripe}
-                className="checkout-button"
-              >
-                {redirectingToStripe ? 'Redirecting to secure payment...' : loading ? 'Processing...' : 'Proceed to Payment'}
-              </button>
-            </div>
+            {renderPaymentSection()}
           </div>
         </div>
         
         <div className="checkout-sidebar">
-          <div className="order-summary-card">
-            <h2>Order Summary</h2>
-            
-            <div className="cart-items">
-              {cart.map(item => (
-                <div key={item.id} className="cart-item">
-                  <div className="item-details">
-                    <span className="item-title">{item.title}</span>
-                  </div>
-                  <span className="item-price">${item.price.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-            
-            {couponApplied && couponInfo && (
-              <div className="discount-row">
-                <span>Discount ({formData.couponCode})</span>
-                <span>-${couponInfo.discount.toFixed(2)}</span>
-              </div>
-            )}
-            
-            <div className="total-row">
-              <span>Total</span>
-              <span>${(cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0) - (couponInfo?.discount || 0)).toFixed(2)}</span>
-            </div>
-            
-            <div className="coupon-section">
-              <div className="coupon-input-group">
-                <input
-                  type="text"
-                  name="couponCode"
-                  placeholder="Enter coupon code"
-                  value={formData.couponCode}
-                  onChange={handleInputChange}
-                  className={errors.couponCode ? 'error' : ''}
-                  disabled={couponLoading || couponApplied}
-                />
-                <button
-                  onClick={applyCoupon}
-                  disabled={couponLoading || couponApplied || !formData.couponCode.trim()}
-                  className={couponApplied ? 'applied' : ''}
-                >
-                  {couponLoading ? 'Validating...' : couponApplied ? 'Applied' : 'Apply'}
-                </button>
-              </div>
-              {errors.couponCode && <p className="error-text">{errors.couponCode}</p>}
-              {couponApplied && couponInfo && (
-                <p className="success-text">{couponInfo.message}</p>
-              )}
-            </div>
-            
-            <div className="benefits-section">
-              <h3>What's Included</h3>
-              <ul className="benefits-list">
-                <li>✓ Full Access to All Purchased Content</li>
-                <li>✓ Certificate of Completion</li>
-                <li>✓ 1-Year Access to All Materials</li>
-                <li>✓ Community Forum Access</li>
-              </ul>
-            </div>
-          </div>
+          {renderOrderSummary()}
         </div>
       </div>
     </div>

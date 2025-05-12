@@ -280,19 +280,25 @@ export const createWelcomeCoupon = async () => {
       code: "WELCOME50",
       description: "50% off your first purchase",
       isActive: true,
-      stripeCouponId: "XyA8C6sf",
+      stripeCouponId: "promo_1RNT0pDBBYanrPYmY24JEwVH",
       type: "percentage",
       value: 50,
-      usedCount: 0
+      usedCount: 0,
+      perUserLimit: 1,  // One-time use per user
+      usageLimit: null, // No global limit
+      maxDiscount: null, // No maximum discount limit
+      minPurchase: 0,   // No minimum purchase required
+      expiryDate: null, // No expiry date
+      startDate: null,  // Active immediately
+      categories: [],   // Valid for all categories
+      excludedExams: [], // No excluded exams
+      createdAt: serverTimestamp(),
+      lastModified: serverTimestamp()
     };
 
     // Create coupon document with code as document ID
     const couponRef = doc(db, 'coupons', couponData.code);
-    await setDoc(couponRef, {
-      ...couponData,
-      createdAt: serverTimestamp(),
-      lastModified: serverTimestamp()
-    });
+    await setDoc(couponRef, couponData);
 
     return {
       success: true,
