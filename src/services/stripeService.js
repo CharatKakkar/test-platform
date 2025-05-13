@@ -761,49 +761,6 @@ export const updateCouponUsage = async (couponCode) => {
 };
 
 /**
- * Records coupon usage in Firestore
- * @param {string} couponCode - The coupon code used
- * @param {string} userId - The user ID who used the coupon
- * @param {string} sessionId - The checkout session ID
- * @returns {Promise<boolean>} - Success status
- */
-export const recordCouponUsage = async (couponCode, userId, sessionId) => {
-  try {
-    if (!userId) return false;
-
-    // Get coupon document
-    const couponRef = doc(db, 'coupons', couponCode);
-    const couponDoc = await getDoc(couponRef);
-    
-    if (!couponDoc.exists()) return false;
-
-    const batch = writeBatch(db);
-
-    // Update coupon usage count
-    batch.update(couponRef, {
-      usedCount: increment(1)
-    });
-
-    // Record coupon usage
-    const couponUsageRef = doc(db, 'used_coupons', userId, 'coupon_usage', sessionId);
-    batch.set(couponUsageRef, {
-      couponCode,
-      sessionId,
-      usedAt: serverTimestamp(),
-      createdAt: serverTimestamp(),
-      stripeCouponId: couponDoc.data().stripeCouponId,
-      status: 'used'
-    });
-
-    await batch.commit();
-    return true;
-  } catch (error) {
-    console.error('Error recording coupon usage:', error);
-    return false;
-  }
-};
-
-/**
  * Gets coupon details from Firestore
  * @param {string} couponCode - The coupon code to retrieve
  * @returns {Promise<Object>} - Coupon details
@@ -841,6 +798,5 @@ export default {
   validateCoupon,
   createCoupon,
   updateCouponUsage,
-  recordCouponUsage,
   getCouponDetails
 };

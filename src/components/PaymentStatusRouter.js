@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import stripeService from '../services/stripeService';
+import { recordCouponUsage } from '../services/couponService';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { auth } from '../firebase';
 import { db } from '../firebase';
@@ -82,7 +83,7 @@ const PaymentStatusRouter = ({
           // Record coupon usage if a coupon was applied
           if (sessionData.metadata?.couponApplied === 'true' && sessionData.metadata?.couponCode) {
             try {
-              await stripeService.recordCouponUsage(
+              await recordCouponUsage(
                 sessionData.metadata.couponCode,
                 auth.currentUser.uid,
                 sessionId

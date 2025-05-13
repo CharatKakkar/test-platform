@@ -9,7 +9,8 @@ import {
   serverTimestamp,
   query,
   where,
-  getDocs
+  getDocs,
+  writeBatch
 } from 'firebase/firestore';
 
 /**
@@ -248,21 +249,33 @@ export const validateCoupon = async (couponCode, subtotal, userId, examId = null
  */
 export const recordCouponUsage = async (couponCode, userId, sessionId) => {
   try {
-    // Update coupon usage count
+    if (!userId) return false;
+
+    // Get coupon document
     const couponRef = doc(db, 'coupons', couponCode);
-    await updateDoc(couponRef, {
+    const couponDoc = await getDoc(couponRef);
+    
+    if (!couponDoc.exists()) return false;
+
+    const batch = writeBatch(db);
+
+    // Update coupon usage count
+    batch.update(couponRef, {
       usedCount: increment(1),
       lastModified: serverTimestamp()
     });
 
-    // Record user's coupon usage
-    const userCouponRef = doc(db, 'users', userId, 'used_coupons', `${couponCode}_${sessionId}`);
-    await setDoc(userCouponRef, {
+    // Record coupon usage in the correct collection path
+    const couponUsageRef = doc(db, 'used_coupons', userId, 'coupon_usage', sessionId);
+    batch.set(couponUsageRef, {
       couponCode,
       sessionId,
-      usedAt: serverTimestamp()
+      usedAt: serverTimestamp(),
+      stripeCouponId: couponDoc.data().stripeCouponId,
+      status: 'used'
     });
 
+    await batch.commit();
     return true;
   } catch (error) {
     console.error('Error recording coupon usage:', error);
