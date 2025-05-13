@@ -212,11 +212,11 @@ const EnhancedExamsList = ({ user, isAuthenticated, addToCart, removeFromCart, c
             </span>
           </div>
           {isAuthenticated ? (
-            <Link to="/checkout" className="btn btn-primary checkout-btn">
+            <Link to="/cart" className="btn btn-primary checkout-btn">
               Proceed to Checkout
             </Link>
           ) : (
-            <Link to="/login" className="btn btn-primary checkout-btn" state={{ from: '/checkout' }}>
+            <Link to="/login" className="btn btn-primary checkout-btn" state={{ from: '/cart' }}>
               Login to Checkout
             </Link>
           )}

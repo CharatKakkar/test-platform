@@ -43,7 +43,7 @@ function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0,
         
         {/* Cart icon with item count */}
         <div className="cart-container">
-          <div className="cart-icon" onClick={toggleCartPreview}>
+          <Link to="/cart" className="cart-icon">
             <svg 
               xmlns="http://www.w3.org/2000/svg" 
               width="24" 
@@ -60,61 +60,7 @@ function Header({ isAuthenticated, user, onLogout, cartItems = 0, cartTotal = 0,
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
             </svg>
             {cartItems > 0 && <span className="cart-badge">{cartItems}</span>}
-          </div>
-          
-          {/* Cart preview dropdown */}
-          {showCartPreview && (
-            <div className="cart-preview">
-              <div className="cart-preview-header">
-                <h3>Your Cart ({cartItems})</h3>
-                <button className="close-preview" onClick={closeCartPreview}>×</button>
-              </div>
-              
-              {cartItems > 0 ? (
-                <>
-                  {/* Display cart items in the preview */}
-                  <div className="cart-preview-items">
-                    {cart && cart.length > 0 ? (
-                      cart.map(item => (
-                        <div key={item.id} className="cart-preview-item">
-                          <span className="cart-item-title">
-                            {item.title}
-                          </span>
-                          <span className="cart-item-price">${item.price.toFixed(2)}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="cart-preview-message">
-                        {cartItems} {cartItems === 1 ? 'item' : 'items'} in cart
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="cart-preview-total">
-                    <span>Total:</span>
-                    <span>${cartTotal.toFixed(2)}</span>
-                  </div>
-                  <div className="cart-preview-actions">
-                    <Link to="/cart" className="btn-view-cart" onClick={closeCartPreview}>
-                      View Cart
-                    </Link>
-                    <Link 
-                      to={"/checkout"} 
-                      className="btn-checkout"
-                      onClick={closeCartPreview}
-                      state={!isAuthenticated ? { from: '/checkout' } : undefined}
-                    >
-                      {"Checkout"}
-                    </Link>
-                  </div>
-                </>
-              ) : (
-                <div className="empty-cart-message">
-                  Your cart is empty
-                </div>
-              )}
-            </div>
-          )}
+          </Link>
         </div>
         
         {isAuthenticated ? (

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { verifyCheckoutSession } from '../services/stripeService'; // Import if needed
 
 const ThankYouPage = () => {
   const location = useLocation();
@@ -42,6 +41,17 @@ const ThankYouPage = () => {
       </div>
     );
   }
+
+  // Calculate subtotal from purchased items
+  const subtotal = orderDetails.purchasedItems.reduce((sum, item) => {
+    return sum + (item.price * (item.quantity || 1));
+  }, 0);
+
+  // Get discount information from metadata
+  const discountAmount = orderDetails.metadata?.amount_discount ? 
+    parseFloat(orderDetails.metadata.amount_discount) / 100 : 0;
+  const hasDiscount = discountAmount > 0;
+  const couponCode = orderDetails.metadata?.couponCode;
   
   return (
     <div className="thank-you-container">
@@ -64,16 +74,6 @@ const ThankYouPage = () => {
             <span>Order Date:</span>
             <span>{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
           </div>
-          <div className="info-row">
-            <span>Order Total:</span>
-            <span>${(orderDetails.amount || 0).toFixed(2)}</span>
-          </div>
-          {orderDetails.discountApplied && (
-            <div className="info-row discount">
-              <span>Discount Applied:</span>
-              <span>-${orderDetails.discountAmount.toFixed(2)}</span>
-            </div>
-          )}
           {orderDetails.customer && (
             <>
               <div className="info-row">
@@ -86,75 +86,71 @@ const ThankYouPage = () => {
               </div>
             </>
           )}
-          <div className="info-row">
-            <span>Payment Status:</span>
-            <span className={orderDetails.paymentStatus === 'paid' ? 'status-success' : 'status-pending'}>
-              {orderDetails.paymentStatus === 'paid' ? 'Paid' : orderDetails.paymentStatus}
-            </span>
-          </div>
         </div>
         
         <h3>Purchased Items</h3>
         <div className="purchased-items">
-          {orderDetails.purchases?.length > 0 ? (
-            orderDetails.purchases.map((item, index) => (
-              <div key={index} className="purchased-item">
-                <h4>{item.title}</h4>
-                <div className="purchase-details">
-                  <div className="detail-row">
-                    <span>Category:</span>
-                    <span>{item.category || 'Uncategorized'}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span>Price:</span>
-                    <span>${item.price.toFixed(2)}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span>Valid Until:</span>
-                    <span>{new Date(item.expiryDate).toLocaleDateString('en-US', { 
-                      year: 'numeric', month: 'long', day: 'numeric' 
-                    })}</span>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : orderDetails.purchasedItems?.length > 0 ? (
-            orderDetails.purchasedItems.map((item, index) => (
-              <div key={index} className="purchased-item">
-                <h4>{item.name}</h4>
-                <div className="purchase-details">
-                  <div className="detail-row">
-                    <span>Quantity:</span>
-                    <span>{item.quantity || 1}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span>ID:</span>
-                    <span>{item.id}</span>
+          {orderDetails.purchasedItems?.length > 0 ? (
+            <>
+              {orderDetails.purchasedItems.map((item, index) => (
+                <div key={index} className="purchased-item">
+                  <h4>{item.name || item.title}</h4>
+                  <div className="purchase-details">
+                    <div className="detail-row">
+                      <span>Category:</span>
+                      <span>{item.category || 'Uncategorized'}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span>Price:</span>
+                      <span>${item.price.toFixed(2)}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span>Quantity:</span>
+                      <span>{item.quantity || 1}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span>Subtotal:</span>
+                      <span>${((item.price * (item.quantity || 1)).toFixed(2))}</span>
+                    </div>
                   </div>
                 </div>
+              ))}
+              
+              <div className="order-summary">
+                <div className="summary-row">
+                  <span>Subtotal:</span>
+                  <span>${subtotal.toFixed(2)}</span>
+                </div>
+                {hasDiscount && (
+                  <>
+                    <div className="summary-row coupon">
+                      <span>Coupon Applied:</span>
+                      <span>{couponCode}</span>
+                    </div>
+                    <div className="summary-row discount">
+                      <span>Discount:</span>
+                      <span>-${discountAmount.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="summary-row total">
+                  <span>Total:</span>
+                  <span>${(subtotal - discountAmount).toFixed(2)}</span>
+                </div>
               </div>
-            ))
+            </>
           ) : (
-            <p>No items found in your order.</p>
+            <p>No items found in this order.</p>
           )}
         </div>
       </div>
       
-      <div className="next-steps">
-        <h3>What's Next?</h3>
-        <ul>
-          <li>Access your purchased exams in your account dashboard</li>
-          <li>Complete your profile to track your progress</li>
-          <li>Start studying and improving your skills</li>
-        </ul>
-      </div>
-      
       <div className="action-buttons">
-        <Link to="/dashboard" className="primary-button">
-          Go to My Dashboard
+        <Link to="/purchased" className="primary-button">
+          View My Purchases
         </Link>
-        <Link to="/exams" className="secondary-button">
-          Browse More Exams
+        <Link to="/" className="secondary-button">
+          Return to Home
         </Link>
       </div>
       
@@ -197,21 +193,6 @@ const ThankYouPage = () => {
           border-bottom: 1px solid #e2e8f0;
         }
         
-        .info-row.discount {
-          color: #10b981;
-          font-weight: bold;
-        }
-        
-        .status-success {
-          color: #10b981;
-          font-weight: bold;
-        }
-        
-        .status-pending {
-          color: #f59e0b;
-          font-weight: bold;
-        }
-        
         .purchased-items {
           margin-top: 1rem;
         }
@@ -240,15 +221,35 @@ const ThankYouPage = () => {
           padding: 0.25rem 0;
         }
         
-        .next-steps {
-          background-color: #f0f9ff;
-          border-radius: 8px;
-          padding: 1.5rem;
-          margin-bottom: 2rem;
+        .order-summary {
+          margin-top: 1.5rem;
+          padding-top: 1rem;
+          border-top: 2px solid #e2e8f0;
         }
         
-        .next-steps ul {
-          padding-left: 1.5rem;
+        .summary-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 0.5rem 0;
+          font-size: 1rem;
+        }
+        
+        .summary-row.coupon {
+          color: #2563eb;
+          font-weight: 500;
+        }
+        
+        .summary-row.discount {
+          color: #10b981;
+          font-weight: bold;
+        }
+        
+        .summary-row.total {
+          font-weight: bold;
+          font-size: 1.1rem;
+          border-top: 1px solid #e2e8f0;
+          margin-top: 0.5rem;
+          padding-top: 0.5rem;
         }
         
         .action-buttons {

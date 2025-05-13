@@ -313,9 +313,99 @@ export const createWelcomeCoupon = async () => {
   }
 };
 
+/**
+ * Updates the perUserLimit field from string to number
+ * @param {string} couponCode - The coupon code to update
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+export const updateCouponPerUserLimit = async (couponCode) => {
+  try {
+    const couponRef = doc(db, 'coupons', couponCode);
+    const couponDoc = await getDoc(couponRef);
+
+    if (!couponDoc.exists()) {
+      return {
+        success: false,
+        message: 'Coupon not found'
+      };
+    }
+
+    const coupon = couponDoc.data();
+    
+    // Convert perUserLimit from string to number if it's a string
+    if (typeof coupon.perUserLimit === 'string') {
+      await updateDoc(couponRef, {
+        perUserLimit: parseInt(coupon.perUserLimit, 10)
+      });
+      
+      return {
+        success: true,
+        message: 'Coupon perUserLimit updated successfully'
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Coupon perUserLimit is already a number'
+    };
+  } catch (error) {
+    console.error('Error updating coupon perUserLimit:', error);
+    return {
+      success: false,
+      message: error.message || 'Error updating coupon perUserLimit'
+    };
+  }
+};
+
+/**
+ * Updates the usageLimit field from string to number
+ * @param {string} couponCode - The coupon code to update
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+export const updateCouponUsageLimit = async (couponCode) => {
+  try {
+    const couponRef = doc(db, 'coupons', couponCode);
+    const couponDoc = await getDoc(couponRef);
+
+    if (!couponDoc.exists()) {
+      return {
+        success: false,
+        message: 'Coupon not found'
+      };
+    }
+
+    const coupon = couponDoc.data();
+    
+    // Convert usageLimit from string to number if it's a string
+    if (typeof coupon.usageLimit === 'string') {
+      await updateDoc(couponRef, {
+        usageLimit: parseInt(coupon.usageLimit, 10)
+      });
+      
+      return {
+        success: true,
+        message: 'Coupon usageLimit updated successfully'
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Coupon usageLimit is already a number'
+    };
+  } catch (error) {
+    console.error('Error updating coupon usageLimit:', error);
+    return {
+      success: false,
+      message: error.message || 'Error updating coupon usageLimit'
+    };
+  }
+};
+
 export default {
   createCoupon,
   validateCoupon,
   recordCouponUsage,
-  createWelcomeCoupon
+  createWelcomeCoupon,
+  updateCouponPerUserLimit,
+  updateCouponUsageLimit
 }; 

@@ -17,7 +17,6 @@ import TestDetails from './components/TestDetails';
 import AttemptHistory from './components/AttemptHistory';
 import ExamDetails from './components/ExamDetails';
 import DemoExam from './components/DemoExam.js';
-import Checkout from './components/Checkout';
 import Footer from './components/Footer';
 import Cart from './components/Cart.js';
 import Order from './components/Order.js';
@@ -360,18 +359,6 @@ function App() {
                 removeFromCart={handleRemoveFromCart}
                 cart={cart}
               />
-            } />
-
-            <Route path="/checkout" element={
-              <Checkout 
-                cart={cart} 
-                user={user} 
-                clearCart={handleClearCart} 
-                removeFromCart={handleRemoveFromCart}
-                updateQuantity={handleUpdateCartItemQuantity}
-                cartTotal={getCartTotal()} 
-                onLogin={login}
-              /> 
             } />
 
             {/* Payment Success/Failure Routes */}
